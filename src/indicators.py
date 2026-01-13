@@ -4,14 +4,14 @@ import numpy as np
 
 def calculate_moving_average(price_series, window=50):
     """
-    Calculate simple moving average.
+    Calculate moving average
     """
     return price_series.rolling(window=window).mean()
 
 
 def calculate_rsi(price_series, period=14):
     """
-    Calculate Relative Strength Index (RSI).
+    Calculate Relative Strength Index (RSI)
     """
     delta = price_series.diff()
 
@@ -29,9 +29,10 @@ def calculate_rsi(price_series, period=14):
 
 def get_signal_score(ma_signal, rsi_signal):
     """
-    Combine MA and RSI signals into a final score.
+    Combine MA and RSI signals into a final result
     """
-    weight_ma = 0.4
-    weight_rsi = 0.6
+    weight_ma = 0.4         #Giving MA 40% Importance
+    weight_rsi = 0.6        #Giving RSI 60% Importance
+    
     return (weight_ma * ma_signal) + (weight_rsi * rsi_signal)
 

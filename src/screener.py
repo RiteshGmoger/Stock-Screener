@@ -29,11 +29,9 @@ class StockScreener:
 
     def download_data(self):
         print("=" * 80)
-        print("STEP 1: DOWNLOAD DATA")
+        print("STEP 1: DOWNLOAD DATA".center(80))
         print("=" * 80)
-        print(
-            f"Downloading {self.lookback_days} days of data for {len(self.tickers)} stocks...\n"
-        )
+        print(f"Downloading {self.lookback_days} days of data for {len(self.tickers)} stocks...\n")
 
         end_date = datetime.now()
         start_date = end_date - timedelta(days=self.lookback_days)
@@ -47,6 +45,7 @@ class StockScreener:
                     start=start_date,
                     end=end_date,
                     progress=False,
+                    auto_adjust=True
                 )
 
                 if df.empty:
@@ -63,7 +62,7 @@ class StockScreener:
 
     def calculate_indicators(self):
         print("=" * 80)
-        print("STEP 2: CALCULATE INDICATORS")
+        print("STEP 2: CALCULATE INDICATORS".center(80))
         print("=" * 80)
 
         for i, (ticker, df) in enumerate(self.data.items(), 1):
@@ -90,8 +89,9 @@ class StockScreener:
 
     def generate_signals(self):
         print("=" * 80)
-        print("STEP 3: GENERATE SIGNALS")
+        print("STEP 3: GENERATE SIGNALS".center(80))
         print("=" * 80)
+
 
         results = []
 
@@ -103,9 +103,10 @@ class StockScreener:
                 ma50 = ind["MA50"]
                 rsi14 = ind["RSI14"]
 
-                latest_close = float(close.iloc[-1])
-                latest_ma50 = float(ma50.iloc[-1])
-                latest_rsi14 = float(rsi14.iloc[-1])
+                latest_close = close.iloc[-1].item()
+                latest_ma50 = ma50.iloc[-1].item()
+                latest_rsi14 = rsi14.iloc[-1].item()
+
 
                 if pd.isna(latest_ma50) or pd.isna(latest_rsi14):
                     print("❌ NaN")
@@ -157,7 +158,7 @@ class StockScreener:
 
     def export_results(self):
         print("=" * 80)
-        print("STEP 4: EXPORT RESULTS")
+        print("STEP 4: EXPORT RESULTS".center(80))
         print("=" * 80)
 
         if self.results is None or self.results.empty:
@@ -167,12 +168,10 @@ class StockScreener:
         self.results.to_csv(self.output_file, index=False)
         print(f"✓ Exported to {self.output_file}\n")
 
-        print("TOP 10 STOCKS")
         print("-" * 80)
-        print(
-            self.results[
-                ["Rank", "Ticker", "Price", "MA50", "RSI14", "Combined_Score"]
-            ]
+        print("TOP 10 STOCKS".center(80))
+        print("-" * 80)
+        print(self.results[["Rank", "Ticker", "Price", "MA50", "RSI14", "Combined_Score"]]
             .head(10)
             .to_string(index=False)
         )
