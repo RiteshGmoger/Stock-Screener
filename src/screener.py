@@ -1,21 +1,15 @@
-"""
-Stock Screener: Complete pipeline.
-1. Download historical stock data
-2. Calculate MA50 and RSI14
-3. Generate buy/sell signals
-4. Rank and output results
-"""
-
 import pandas as pd
 import yfinance as yf
 from datetime import datetime, timedelta
 
-from indicators import (
+from src.indicators import (
     calculate_moving_average,
     calculate_rsi,
-    get_signal_score,
+    get_ma_signal,
+    get_rsi_signal,
+    combine_signals,
 )
-from stock_list import TEST_TICKERS
+from src.stock_list import TEST_TICKERS
 
 
 class StockScreener:
@@ -29,9 +23,8 @@ class StockScreener:
 
     def download_data(self):
         print("=" * 80)
-        print("STEP 1: DOWNLOAD DATA".center(80))
+        print("STEP 1: DOWNLOAD DATA")
         print("=" * 80)
-        print(f"Downloading {self.lookback_days} days of data for {len(self.tickers)} stocks...\n")
 
         end_date = datetime.now()
         start_date = end_date - timedelta(days=self.lookback_days)
@@ -45,7 +38,6 @@ class StockScreener:
                     start=start_date,
                     end=end_date,
                     progress=False,
-                    auto_adjust=True
                 )
 
                 if df.empty:
@@ -56,13 +48,13 @@ class StockScreener:
                 print(f"✓ {len(df)} rows")
 
             except Exception as e:
-                print(f"❌ ERROR: {str(e)[:40]}")
+                print(f"❌ {str(e)[:30]}")
 
         print(f"\n✓ Downloaded {len(self.data)}/{len(self.tickers)} stocks\n")
 
     def calculate_indicators(self):
         print("=" * 80)
-        print("STEP 2: CALCULATE INDICATORS".center(80))
+        print("STEP 2: CALCULATE INDICATORS")
         print("=" * 80)
 
         for i, (ticker, df) in enumerate(self.data.items(), 1):
@@ -70,6 +62,8 @@ class StockScreener:
                 print(f"[{i:2d}/{len(self.data)}] {ticker:20s}", end=" ")
 
                 close = df["Close"]
+                if isinstance(close, pd.DataFrame):
+                    close = close.iloc[:, 0]
 
                 ma50 = calculate_moving_average(close, 50)
                 rsi14 = calculate_rsi(close, 14)
@@ -89,9 +83,8 @@ class StockScreener:
 
     def generate_signals(self):
         print("=" * 80)
-        print("STEP 3: GENERATE SIGNALS".center(80))
+        print("STEP 3: GENERATE SIGNALS")
         print("=" * 80)
-
 
         results = []
 
@@ -103,62 +96,52 @@ class StockScreener:
                 ma50 = ind["MA50"]
                 rsi14 = ind["RSI14"]
 
-                latest_close = close.iloc[-1].item()
-                latest_ma50 = ma50.iloc[-1].item()
-                latest_rsi14 = rsi14.iloc[-1].item()
+                price = float(close.iloc[-1])
+                ma = float(ma50.iloc[-1])
+                rsi = float(rsi14.iloc[-1])
 
-
-                if pd.isna(latest_ma50) or pd.isna(latest_rsi14):
+                if pd.isna(ma) or pd.isna(rsi):
                     print("❌ NaN")
                     continue
 
-                ma_diff_pct = (latest_close - latest_ma50) / latest_ma50 * 100
-
-                if ma_diff_pct > 1:
-                    ma_signal = 1
-                elif ma_diff_pct < -1:
-                    ma_signal = -1
-                else:
-                    ma_signal = 0
-
-                if latest_rsi14 > 60:
-                    rsi_signal = 1
-                elif latest_rsi14 < 40:
-                    rsi_signal = -0.5
-                else:
-                    rsi_signal = 0
-
-                score = get_signal_score(ma_signal, rsi_signal)
+                ma_sig = get_ma_signal(price, ma)
+                rsi_sig = get_rsi_signal(rsi)
+                score = combine_signals(ma_sig, rsi_sig)
 
                 results.append(
                     {
                         "Ticker": ticker,
-                        "Price": round(latest_close, 2),
-                        "MA50": round(latest_ma50, 2),
-                        "RSI14": round(latest_rsi14, 2),
-                        "MA_Diff_%": round(ma_diff_pct, 2),
-                        "MA_Signal": ma_signal,
-                        "RSI_Signal": rsi_signal,
+                        "Price": round(price, 2),
+                        "MA50": round(ma, 2),
+                        "RSI14": round(rsi, 2),
                         "Combined_Score": round(score, 2),
                     }
                 )
 
-                print(f"✓ Score {score:+.2f}")
+                if score >= 0.7:
+                    tag = "🔥 STRONG BUY"
+                elif score >= 0.3:
+                    tag = "👍 BUY"
+                elif score <= -0.3:
+                    tag = "⛔ SELL"
+                else:
+                    tag = "➖ HOLD"
+
+                print(f"{tag} ({score:+.2f})")
 
             except Exception as e:
                 print(f"❌ {str(e)[:30]}")
 
-        self.results = pd.DataFrame(results)
-        self.results = self.results.sort_values(
+        self.results = pd.DataFrame(results).sort_values(
             "Combined_Score", ascending=False
-        ).reset_index(drop=True)
-        self.results["Rank"] = self.results.index + 1
+        )
+        self.results["Rank"] = range(1, len(self.results) + 1)
 
         print(f"\n✓ Signals generated for {len(self.results)} stocks\n")
 
     def export_results(self):
         print("=" * 80)
-        print("STEP 4: EXPORT RESULTS".center(80))
+        print("STEP 4: EXPORT RESULTS")
         print("=" * 80)
 
         if self.results is None or self.results.empty:
@@ -168,14 +151,7 @@ class StockScreener:
         self.results.to_csv(self.output_file, index=False)
         print(f"✓ Exported to {self.output_file}\n")
 
-        print("-" * 80)
-        print("TOP 10 STOCKS".center(80))
-        print("-" * 80)
-        print(self.results[["Rank", "Ticker", "Price", "MA50", "RSI14", "Combined_Score"]]
-            .head(10)
-            .to_string(index=False)
-        )
-        print("-" * 80)
+        print(self.results.head(10).to_string(index=False))
 
     def run(self):
         self.download_data()

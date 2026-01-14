@@ -1,20 +1,39 @@
-# Stock Screener
+## How the Screener Works
 
-Goal:
-Screen 50 stocks and rank the top 10 based on trend and momentum.
+### Step 1: Download Data
+Downloads ~1 year (260 days) of historical price data for each stock using Yahoo Finance.
 
-Indicators used:
-- 50-day Moving Average (trend)
-- RSI (momentum)
+### Step 2: Calculate Indicators
+For each stock, calculates:
+- **MA50**: 50-day moving average (trend direction)
+- **RSI14**: 14-period RSI (momentum strength)
 
-Scoring logic:
-Score = 0.4 * MA_signal + 0.6 * RSI_signal
+### Step 3: Generate Signals
+Signals are generated from indicators:
+- **MA signal**: price compared to MA50 (trend)
+- **RSI signal**: momentum strength
 
-Filters:
-- Average volume > 1M
-- Price > 50
-- 50-day return > -20%
+Final score:
+Score = 0.4 × MA_signal + 0.6 × RSI_signal
 
-Status:
-Day 1 – Design completed. Coding starts next.
+Where:
+- **MA_signal**: +1 if price > MA50, -1 if price < MA50, 0 if near
+- **RSI_signal**: +1 if RSI > 60, 0 if 40–60, -0.5 if < 40
 
+### Step 4: Rank & Output
+Stocks are ranked by **Combined_Score** (higher = stronger buy signal).
+
+## Output
+- **screener_results.csv** contains:
+  - Ticker
+  - Price
+  - MA50
+  - RSI14
+  - Combined_Score
+  - Rank
+
+## Interpretation
+- Score ≥ +0.7 → 🔥 STRONG BUY 
+- Score +0.3 to +0.7 → 👍 BUY 
+- Score -0.3 to +0.3 → ➖ HOLD 
+- Score ≤ -0.3 → ⛔ SELL
