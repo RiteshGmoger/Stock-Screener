@@ -9,18 +9,16 @@ from src.indicators import (
 )
 
 print("=" * 80)
-print("TESTING INDICATORS ON REAL DATA")
+print("TESTING INDICATORS ON REAL DATA".center(80))
 print("=" * 80)
 
-# --------------------------------------------------
-# 1) Download real stock data
-# --------------------------------------------------
 print("\n[1/5] Downloading RELIANCE.NS data...")
 data = yf.download(
     "RELIANCE.NS",
     start="2024-01-01",
     end="2025-01-09",
     progress=False,
+    auto_adjust=True
 )
 print(f"✓ Downloaded {len(data)} days of data")
 
