@@ -4,7 +4,7 @@ import numpy as np
 
 def calculate_moving_average(price_series, window=50):
     """
-    Calculate simple moving average (SMA).
+    Calculate moving average (SMA).
     """
     return price_series.rolling(window=window).mean()
 
@@ -55,5 +55,6 @@ def get_rsi_signal(rsi_value):
 
 def combine_signals(ma_signal, rsi_signal, ma_weight=0.4, rsi_weight=0.6):
     score = (ma_weight * ma_signal) + (rsi_weight * rsi_signal)
+    
     return max(-1.0, min(1.0, score))
 

@@ -7,9 +7,8 @@ sys.path.insert(0, PROJECT_ROOT)
 from src.screener import StockScreener
 from src.stock_list import TEST_TICKERS
 
-
 print("\n" + "=" * 80)
-print("TEST: SCREENER ON TODAY'S DATA")
+print("TEST: SCREENER ON TODAY'S DATA".center(80))
 print("=" * 80)
 
 screener = StockScreener(TEST_TICKERS, lookback_days=260)

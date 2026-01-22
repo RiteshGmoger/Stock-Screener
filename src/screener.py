@@ -23,7 +23,7 @@ class StockScreener:
 
     def download_data(self):
         print("=" * 80)
-        print("STEP 1: DOWNLOAD DATA")
+        print("STEP 1: DOWNLOAD DATA".center(80))
         print("=" * 80)
 
         end_date = datetime.now()
@@ -38,23 +38,24 @@ class StockScreener:
                     start=start_date,
                     end=end_date,
                     progress=False,
+                    auto_adjust=True,
                 )
 
                 if df.empty:
-                    print("❌ NO DATA")
+                    print("NO DATA")
                     continue
 
                 self.data[ticker] = df
                 print(f"✓ {len(df)} rows")
 
             except Exception as e:
-                print(f"❌ {str(e)[:30]}")
+                print(f"{str(e)[:30]}")
 
         print(f"\n✓ Downloaded {len(self.data)}/{len(self.tickers)} stocks\n")
 
     def calculate_indicators(self):
         print("=" * 80)
-        print("STEP 2: CALCULATE INDICATORS")
+        print("STEP 2: CALCULATE INDICATORS".center(80))
         print("=" * 80)
 
         for i, (ticker, df) in enumerate(self.data.items(), 1):
@@ -77,13 +78,13 @@ class StockScreener:
                 print("✓")
 
             except Exception as e:
-                print(f"❌ {str(e)[:30]}")
+                print(f"{str(e)[:30]}")
 
         print(f"\n✓ Indicators calculated for {len(self.indicators)} stocks\n")
 
     def generate_signals(self):
         print("=" * 80)
-        print("STEP 3: GENERATE SIGNALS")
+        print("STEP 3: GENERATE SIGNALS".center(80))
         print("=" * 80)
 
         results = []
@@ -101,7 +102,7 @@ class StockScreener:
                 rsi = float(rsi14.iloc[-1])
 
                 if pd.isna(ma) or pd.isna(rsi):
-                    print("❌ NaN")
+                    print("NaN")
                     continue
 
                 ma_sig = get_ma_signal(price, ma)
@@ -130,7 +131,7 @@ class StockScreener:
                 print(f"{tag} ({score:+.2f})")
 
             except Exception as e:
-                print(f"❌ {str(e)[:30]}")
+                print(f"{str(e)[:30]}")
 
         self.results = pd.DataFrame(results).sort_values(
             "Combined_Score", ascending=False
@@ -141,11 +142,11 @@ class StockScreener:
 
     def export_results(self):
         print("=" * 80)
-        print("STEP 4: EXPORT RESULTS")
+        print("STEP 4: EXPORT RESULTS".center(80))
         print("=" * 80)
 
         if self.results is None or self.results.empty:
-            print("❌ No results")
+            print("No results")
             return
 
         self.results.to_csv(self.output_file, index=False)
