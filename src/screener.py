@@ -5,10 +5,9 @@ from datetime import datetime, timedelta
 from src.indicators import (
     calculate_moving_average,
     calculate_rsi,
-    get_ma_signal,
-    get_rsi_signal,
-    combine_signals,
 )
+
+from src.scoring import StockScorer
 from src.stock_list import TEST_TICKERS
 
 
@@ -20,11 +19,12 @@ class StockScreener:
         self.indicators = {}
         self.results = None
         self.output_file = "screener_results.csv"
+        self.scorer = StockScorer(ma_weight=0.4, rsi_weight=0.6)
 
     def download_data(self):
-        print("=" * 80)
+        print("✦" * 80)
         print("STEP 1: DOWNLOAD DATA".center(80))
-        print("=" * 80)
+        print("✦" * 80)
 
         end_date = datetime.now()
         start_date = end_date - timedelta(days=self.lookback_days)
@@ -54,9 +54,9 @@ class StockScreener:
         print(f"\n✓ Downloaded {len(self.data)}/{len(self.tickers)} stocks\n")
 
     def calculate_indicators(self):
-        print("=" * 80)
+        print("✦" * 80)
         print("STEP 2: CALCULATE INDICATORS".center(80))
-        print("=" * 80)
+        print("✦" * 80)
 
         for i, (ticker, df) in enumerate(self.data.items(), 1):
             try:
@@ -81,78 +81,74 @@ class StockScreener:
                 print(f"{str(e)[:30]}")
 
         print(f"\n✓ Indicators calculated for {len(self.indicators)} stocks\n")
-
+        
     def generate_signals(self):
-        print("=" * 80)
-        print("STEP 3: GENERATE SIGNALS".center(80))
-        print("=" * 80)
+        print("\n" + "✦" * 80)
+        print("STEP 3: GENERATE SIGNALS + SCORE")
+        print("✦" * 80 + "\n")
 
-        results = []
+        results_list = []
 
-        for i, (ticker, ind) in enumerate(self.indicators.items(), 1):
+        for ticker, ind in self.indicators.items():
             try:
-                print(f"[{i:2d}/{len(self.indicators)}] {ticker:20s}", end=" ")
-
                 close = ind["Close"]
                 ma50 = ind["MA50"]
                 rsi14 = ind["RSI14"]
 
-                price = float(close.iloc[-1])
-                ma = float(ma50.iloc[-1])
-                rsi = float(rsi14.iloc[-1])
+                latest_close = close.iloc[-1]
+                latest_ma50 = ma50.iloc[-1]
+                latest_rsi14 = rsi14.iloc[-1]
 
-                if pd.isna(ma) or pd.isna(rsi):
-                    print("NaN")
+                if pd.isna(latest_ma50) or pd.isna(latest_rsi14):
                     continue
 
-                ma_sig = get_ma_signal(price, ma)
-                rsi_sig = get_rsi_signal(rsi)
-                score = combine_signals(ma_sig, rsi_sig)
-
-                results.append(
-                    {
-                        "Ticker": ticker,
-                        "Price": round(price, 2),
-                        "MA50": round(ma, 2),
-                        "RSI14": round(rsi, 2),
-                        "Combined_Score": round(score, 2),
-                    }
+                score = self.scorer.calculate_score(
+                    latest_close, latest_ma50, latest_rsi14
                 )
+                signal = self.scorer.get_interpretation(score)
 
-                if score >= 0.7:
-                    tag = "🔥 STRONG BUY"
-                elif score >= 0.3:
-                    tag = "👍 BUY"
-                elif score <= -0.3:
-                    tag = "⛔ SELL"
-                else:
-                    tag = "➖ HOLD"
+                ma_diff_pct = (latest_close - latest_ma50) / latest_ma50 * 100
 
-                print(f"{tag} ({score:+.2f})")
+                results_list.append({
+                    "Ticker": ticker,
+                    "Price": round(latest_close, 2),
+                    "MA50": round(latest_ma50, 2),
+                    "MA_Diff_%": round(ma_diff_pct, 2),
+                    "RSI14": round(latest_rsi14, 2),
+                    "Score": score,
+                    "Signal": signal
+                })
+
+                print(f"✓ {ticker:15s} | Score {score:+.2f} | {signal}")
 
             except Exception as e:
-                print(f"{str(e)[:30]}")
+                print(f"✗ {ticker}: {str(e)[:40]}")
 
-        self.results = pd.DataFrame(results).sort_values(
-            "Combined_Score", ascending=False
-        )
+        self.results = pd.DataFrame(results_list)
+        self.results = self.results.sort_values("Score", ascending=False)
         self.results["Rank"] = range(1, len(self.results) + 1)
 
-        print(f"\n✓ Signals generated for {len(self.results)} stocks\n")
+        print(f"\n✓ Scored {len(self.results)} stocks\n")
 
     def export_results(self):
-        print("=" * 80)
-        print("STEP 4: EXPORT RESULTS".center(80))
-        print("=" * 80)
-
+        """Export scored and ranked stocks."""
+        print("✦" * 80)
+        print("STEP 4: EXPORT RESULTS")
+        print("✦" * 80 + "\n")
+        
         if self.results is None or self.results.empty:
-            print("No results")
+            print("❌ No results to export\n")
             return
-
+        
         self.results.to_csv(self.output_file, index=False)
-        print(f"✓ Exported to {self.output_file}\n")
-
-        print(self.results.head(10).to_string(index=False))
+        print(f"✓ Exported: {self.output_file}\n")
+        
+        # Print top 10
+        print("TOP 10 STOCKS (by Score):")
+        print("✦" * 80)
+        cols = ['Rank', 'Ticker', 'Price', 'MA50', 'RSI14', 'Score', 'Signal']
+        print(self.results[cols].head(10).to_string(index=False))
+        print("✦" * 80 + "\n")
 
     def run(self):
         self.download_data()
