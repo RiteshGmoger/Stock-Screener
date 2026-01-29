@@ -8,9 +8,9 @@ from src.indicators import (
     combine_signals,
 )
 
-print("=" * 80)
+print("✦" * 80)
 print("TESTING INDICATORS ON REAL DATA".center(80))
-print("=" * 80)
+print("✦" * 80)
 
 print("\n[1/5] Downloading RELIANCE.NS data...")
 data = yf.download(
@@ -64,9 +64,9 @@ else:
     print("→ NEUTRAL")
 
 print("\n[5/5] Backtest last 20 days")
-print("-" * 80)
+print("✦" * 80)
 print("Date       | Price    | MA50     | RSI    | Score  | Action")
-print("-" * 80)
+print("✦" * 80)
 
 for i in range(-20, 0):
     price = close_prices.iloc[i]

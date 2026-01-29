@@ -84,7 +84,7 @@ class StockScreener:
         
     def generate_signals(self):
         print("\n" + "✦" * 80)
-        print("STEP 3: GENERATE SIGNALS + SCORE")
+        print("STEP 3: GENERATE SIGNALS + SCORE".center(80))
         print("✦" * 80 + "\n")
 
         results_list = []
@@ -133,7 +133,7 @@ class StockScreener:
     def export_results(self):
         """Export scored and ranked stocks."""
         print("✦" * 80)
-        print("STEP 4: EXPORT RESULTS")
+        print("STEP 4: EXPORT RESULTS".center(80))
         print("✦" * 80 + "\n")
         
         if self.results is None or self.results.empty:
