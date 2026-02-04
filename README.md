@@ -314,3 +314,9 @@ Before going live:
 
 ---
 
+## Risk & Regime Analysis
+- Max drawdown: X%
+- Bull markets: +Y% monthly edge
+- Bear markets: +Z% capital preservation
+- Flat markets: no overtrading (near-zero exposure)
+- Position sizing: half-Kelly + volatility targeting
