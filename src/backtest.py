@@ -9,6 +9,12 @@ warnings.filterwarnings('ignore')
 from src.screener import StockScreener
 from src.stock_list import TEST_TICKERS
 
+"""
+Backtest:
+    “Let me go back in time, pretend it’s some old date,
+    run my screener as if I lived on that day, and then 
+    see what happened after”
+"""
 
 class Backtest:
     """
@@ -38,8 +44,8 @@ class Backtest:
         
         self.stock_list = TEST_TICKERS
         self.results = []
-        self.monthly_picks = []  # Track stock picks each month
-        self.errors = []  # Track errors for debugging
+        self.monthly_picks = []      # Track stock picks each month
+        self.errors = []             # Track errors for debugging
 
         print("\n" + "✦" * 80)
         print(" QUANTITATIVE BACKTEST ENGINE ".center(80, "✦"))
@@ -53,16 +59,22 @@ class Backtest:
         print(f"   • Start: {start_year}-{start_month:02d}")
         print("\n" + "─" * 80 + "\n")
 
-    def _get_screen_date(self, year, month):
-        """Get the 15th of each month as screening date"""
+    def get_screen_date(self, year, month):
+        """
+        Get the 15th of each month as screening date
+        Once per month, I make a decision
+        I rebalance monthly
+        """
         try:
             return datetime(year, month, 15)
         except ValueError:
             # Handle invalid dates (e.g., if we go past Dec)
             return None
 
-    def _get_month_range(self):
-        """Generate list of (year, month) tuples for backtesting"""
+    def get_month_range(self):
+        """
+        Generate list of (year, month) for backtesting
+        """
         start = datetime(self.start_year, self.start_month, 1)
         months = []
         
@@ -71,82 +83,8 @@ class Backtest:
             months.append((current.year, current.month))
         
         return months
-
-    def _download_data_blind(self, ticker, screen_date):
-        """
-        Download ONLY data available before screen_date.
-        This prevents look-ahead bias.
-        """
-        start = screen_date - timedelta(days=self.lookback_days)
         
-        try:
-            df = yf.download(
-                ticker,
-                start=start.strftime("%Y-%m-%d"),
-                end=screen_date.strftime("%Y-%m-%d"),
-                progress=False,
-                auto_adjust=True
-            )
-            return df if not df.empty else None
-        except Exception as e:
-            self.errors.append(f"Download failed for {ticker}: {str(e)[:50]}")
-            return None
-
-    def _download_future(self, ticker, screen_date):
-        """
-        Download forward-looking data for return calculation.
-        This is ONLY used for measuring returns, never for selection.
-        """
-        end = screen_date + timedelta(days=self.holding_days + 10)  # Buffer for weekends
-        
-        try:
-            df = yf.download(
-                ticker,
-                start=screen_date.strftime("%Y-%m-%d"),
-                end=end.strftime("%Y-%m-%d"),
-                progress=False,
-                auto_adjust=True
-            )
-            return df if len(df) >= 2 else None
-        except Exception as e:
-            self.errors.append(f"Future download failed for {ticker}: {str(e)[:50]}")
-            return None
-
-    def _calc_return(self, entry, exit):
-        """Calculate percentage return"""
-        # Handle pandas Series - extract scalar value
-        if isinstance(entry, pd.Series):
-            entry = entry.iloc[0] if len(entry) > 0 else entry
-        if isinstance(exit, pd.Series):
-            exit = exit.iloc[0] if len(exit) > 0 else exit
-            
-        # Now check for invalid values
-        if pd.isna(entry) or pd.isna(exit) or entry == 0:
-            return 0
-        return ((exit - entry) / entry) * 100
-
-    def _get_benchmark_return(self, screen_date):
-        """Calculate Nifty 50 benchmark return"""
-        try:
-            end = screen_date + timedelta(days=self.holding_days + 10)
-            nifty = yf.download(
-                "^NSEI",
-                start=screen_date.strftime("%Y-%m-%d"),
-                end=end.strftime("%Y-%m-%d"),
-                progress=False,
-                auto_adjust=True
-            )
-            
-            if len(nifty) < 2:
-                return 0
-            
-            return self._calc_return(nifty["Close"].iloc[0], nifty["Close"].iloc[-1])
-        
-        except Exception as e:
-            self.errors.append(f"Benchmark download failed: {str(e)[:50]}")
-            return 0
-
-    def _screen_stocks(self, screen_date):
+    def screen_stocks(self, screen_date):
         """
         Screen stocks using ONLY data before screen_date.
         Returns: List of (ticker, score, entry_price) tuples
@@ -157,7 +95,7 @@ class Backtest:
         # Download historical data for each stock
         downloaded = 0
         for ticker in self.stock_list:
-            df = self._download_data_blind(ticker, screen_date)
+            df = self.download_data_blind(ticker, screen_date)
             if df is not None:
                 screener.data[ticker] = df
                 downloaded += 1
@@ -169,7 +107,6 @@ class Backtest:
         # Calculate indicators
         screener.calculate_indicators()
         
-        # Score stocks
         scored = []
         for ticker, ind in screener.indicators.items():
             try:
@@ -197,9 +134,33 @@ class Backtest:
         
         # Sort by score and return top N
         scored.sort(key=lambda x: x[1], reverse=True)
+        """
+        sort using 2nd element(score) of the tuple
+        in decending order
+        """
         return scored[:self.top_n]
 
-    def _calculate_portfolio_returns(self, picks, screen_date):
+    def download_data_blind(self, ticker, screen_date):
+        """
+        Download ONLY data available before screen_date.
+        This prevents look-ahead bias.
+        """
+        start = screen_date - timedelta(days=self.lookback_days)
+        
+        try:
+            df = yf.download(
+                ticker,
+                start=start.strftime("%Y-%m-%d"),
+                end=screen_date.strftime("%Y-%m-%d"),
+                progress=False,
+                auto_adjust=True
+            )
+            return df if not df.empty else None
+        except Exception as e:
+            self.errors.append(f"Download failed for {ticker}: {str(e)[:50]}")
+            return None
+            
+    def calculate_portfolio_returns(self, picks, screen_date):
         """
         Calculate forward returns for selected stocks.
         This measures performance AFTER selection.
@@ -209,7 +170,7 @@ class Backtest:
         
         for ticker, score, entry_price in picks:
             # Download future data
-            future_df = self._download_future(ticker, screen_date)
+            future_df = self.download_future(ticker, screen_date)
             
             if future_df is None or len(future_df) < 2:
                 # If we can't get future data, skip this stock
@@ -222,7 +183,7 @@ class Backtest:
             if isinstance(exit_price, pd.Series):
                 exit_price = exit_price.iloc[0]
             
-            ret = self._calc_return(entry_price, exit_price)
+            ret = self.calc_return(entry_price, exit_price)
             returns.append(ret)
             
             pick_details.append({
@@ -234,8 +195,85 @@ class Backtest:
             })
         
         return returns, pick_details
+        
+    def download_future(self, ticker, screen_date):
+        """
+        Download forward-looking data for return calculation.
+        This is ONLY used for measuring returns, never for selection.
+        """
+        end = screen_date + timedelta(days=self.holding_days + 10)   # Buffer for weekends
+        """
+        Why 30 days is commonly used
+        Your signals are:
+            MA50 → slow trend
+            RSI14 → medium-term momentum
+        These do NOT change meaningfully in 1–2 days
 
-    def _display_summary(self):
+        If you check only 1 day later:
+            price move is mostly noise
+            random news dominates
+            your indicators didnt do much yet
+
+        So 30 days answers:
+            Did the trend/momentum idea have time to work?
+            
+        What happens if you check 1 day later
+        You’ll see:
+            random ups/downs
+            high variance
+        
+        strategy looks unstable
+        """
+        try:
+            df = yf.download(
+                ticker,
+                start=screen_date.strftime("%Y-%m-%d"),
+                end=end.strftime("%Y-%m-%d"),
+                progress=False,
+                auto_adjust=True
+            )
+            return df if len(df) >= 2 else None
+        except Exception as e:
+            self.errors.append(f"Future download failed for {ticker}: {str(e)[:50]}")
+            return None
+
+    def calc_return(self, entry, exit):
+        """
+        Calculate percentage return
+        """
+        if isinstance(entry, pd.Series):
+            entry = entry.iloc[0] if len(entry) > 0 else entry
+        if isinstance(exit, pd.Series):
+            exit = exit.iloc[0] if len(exit) > 0 else exit
+            
+        # Now check for invalid values
+        if pd.isna(entry) or pd.isna(exit) or entry == 0:
+            return 0
+        return ((exit - entry) / entry) * 100
+
+    def get_benchmark_return(self, screen_date):
+        """Calculate Nifty 50 benchmark return"""
+        try:
+            end = screen_date + timedelta(days=self.holding_days + 10)
+            nifty = yf.download(
+                "^NSEI",
+                start=screen_date.strftime("%Y-%m-%d"),
+                end=end.strftime("%Y-%m-%d"),
+                progress=False,
+                auto_adjust=True
+            )
+            
+            if len(nifty) < 2:
+                return 0
+            
+            return self.calc_return(nifty["Close"].iloc[0], nifty["Close"].iloc[-1])
+        
+        except Exception as e:
+            self.errors.append(f"Benchmark download failed: {str(e)[:50]}")
+            return 0
+
+
+    def display_summary(self):
         """Display beautiful summary statistics"""
         if not self.results:
             print("\n❌ No results to display\n")
@@ -251,7 +289,6 @@ class Backtest:
         print("📊 Monthly Performance:\n")
         print(df.to_string(index=False))
         
-        # Summary statistics
         print("\n" + "✦" * 80)
         print(" PERFORMANCE METRICS ".center(80))
         print("✦" * 80 + "\n")
@@ -272,7 +309,7 @@ class Backtest:
         port_std = np.std(portfolio_returns)
         sharpe = (avg_port / port_std) if port_std > 0 else 0
         
-        max_dd = self._calculate_max_drawdown(portfolio_returns)
+        max_dd = self.calculate_max_drawdown(portfolio_returns)
         
         print(f"Portfolio Statistics:")
         print(f"  • Total Return:        {total_port:+.2f}%")
@@ -302,14 +339,43 @@ class Backtest:
         
         print("\n" + "═" * 80 + "\n")
 
-    def _calculate_max_drawdown(self, returns):
+    def calculate_max_drawdown(self, returns):
         """Calculate maximum drawdown from monthly returns"""
         cumulative = np.cumprod(1 + np.array(returns) / 100)
+        """
+        Assume monthly returns:
+            returns = [10, -5, 8, -20, 5]
+
+        Convert to cumulative growth
+        cumulative = np.cumprod(1 + np.array(returns) / 100)
+
+        First convert % to growth:
+            1 + returns/100
+            = [1.10, 0.95, 1.08, 0.80, 1.05]
+
+        Now cumprod multiplies sequentially:
+            Month 1: 1.10
+            Month 2: 1.10 * 0.95 = 1.045
+            Month 3: 1.045 * 1.08 ≈ 1.1286
+            Month 4: 1.1286 * 0.80 ≈ 0.9029
+            Month 5: 0.9029 * 1.05 ≈ 0.9480
+            
+        So:
+            cumulative ≈ [1.10, 1.045, 1.1286, 0.9029, 0.9480]
+
+        This shows portfolio growth over time
+        """
         running_max = np.maximum.accumulate(cumulative)
+        """
+        This stores the highest value reached up to each point
+        
+        So:
+            running_max = [1.10, 1.10, 1.1286, 1.1286, 1.1286]
+        """
         drawdown = (cumulative - running_max) / running_max * 100
         return np.min(drawdown)
 
-    def _export_results(self):
+    def export_results(self):
         """Export results to CSV files"""
         print("💾 Exporting results...\n")
         
@@ -345,14 +411,16 @@ class Backtest:
         print("\n✅ Backtest Complete!\n")
         
     def run(self):
-        """Execute the backtest"""
+        """
+        Execute the backtest
+        """
         print("🚀 Starting Backtest...\n")
         print("─" * 80)
         
-        month_range = self._get_month_range()
+        month_range = self.get_month_range()
         
         for idx, (year, month) in enumerate(month_range, 1):
-            screen_date = self._get_screen_date(year, month)
+            screen_date = self.get_screen_date(year, month)
             
             if screen_date is None:
                 continue
@@ -361,10 +429,14 @@ class Backtest:
             
             print(f"\n[{idx:2d}/{self.backtest_months}] 📅 {label}")
             print(f"      Screen Date: {screen_date.date()}")
+            """
+            Without .date():
+                2024-02-15 00:00:00
+            """
             
             # Screen stocks
-            print(f"      🔍 Screening {len(self.stock_list)} stocks...")
-            picks = self._screen_stocks(screen_date)
+            print(f"      🔍 Screening {len(self.stock_list)} stocks...\n")
+            picks = self.screen_stocks(screen_date)
             
             if not picks:
                 print(f"      ❌ No valid picks this month")
@@ -384,7 +456,7 @@ class Backtest:
             
             # Calculate returns
             print(f"      💰 Calculating returns...")
-            returns, pick_details = self._calculate_portfolio_returns(picks, screen_date)
+            returns, pick_details = self.calculate_portfolio_returns(picks, screen_date)
             
             # Store pick details
             self.monthly_picks.append({
@@ -394,7 +466,7 @@ class Backtest:
             
             # Portfolio metrics
             portfolio_return = np.mean(returns) if returns else 0
-            benchmark_return = self._get_benchmark_return(screen_date)
+            benchmark_return = self.get_benchmark_return(screen_date)
             outperformance = portfolio_return - benchmark_return
             
             # Store results
@@ -411,17 +483,19 @@ class Backtest:
             print(f"         Portfolio: {portfolio_return:+7.2f}%")
             print(f"         Nifty 50:  {benchmark_return:+7.2f}%")
             print(f"         Alpha:     {outperformance:+7.2f}%")
-            print("─" * 80)
+            print("\n" + "─" * 80)
         
         # Display summary
-        self._display_summary()
+        self.display_summary()
         
         # Export results
-        self._export_results()
+        self.export_results()
 
 
 if __name__ == "__main__":
-    # Run backtest for last 12 months
+    """
+    Run backtest for last 12 months
+    """
     bt = Backtest(
         backtest_months=12,
         lookback_days=260,

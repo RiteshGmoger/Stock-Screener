@@ -8,7 +8,7 @@ class StockScorer:
     - Momentum (RSI14)
 
     Output:
-    score ∈ [-1.0, +1.0]
+    score == [-1.0, +1.0]
     """
 
     def __init__(self, ma_weight=0.4, rsi_weight=0.6):

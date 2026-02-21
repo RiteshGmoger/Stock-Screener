@@ -65,6 +65,19 @@ class StockScreener:
                 close = df["Close"]
                 if isinstance(close, pd.DataFrame):
                     close = close.iloc[:, 0]
+                """
+                Sometimes (especially with yfinance), data can come back like this:
+
+                df["Close"]
+                becomes:
+                                RELIANCE.NS
+                    Date             close
+                    2024-01-01        2400
+                    2024-01-02        2420
+                    2024-01-03        2410
+                    
+                It becomes dataframe 😁
+                """
 
                 ma50 = calculate_moving_average(close, 50)
                 rsi14 = calculate_rsi(close, 14)
