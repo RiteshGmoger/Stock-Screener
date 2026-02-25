@@ -14,6 +14,7 @@ df = pd.read_csv(csv_path)
 # Equity curve
 equity = (1 + df["portfolio"] / 100).cumprod()
 
+
 # Drawdown
 rolling_max = equity.cummax()
 drawdown = (equity - rolling_max) / rolling_max
