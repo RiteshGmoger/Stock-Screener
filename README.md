@@ -1,8 +1,8 @@
-# 📈 Quantitative Stock Screener & Backtester
+# Quantitative Stock Screener & Backtester
 
 A professional-grade quantitative trading system for Indian equities with proper backtesting methodology and zero look-ahead bias.
 
-## 🎯 What This System Does
+## What This System Does
 
 This is a complete quant trading pipeline that:
 1. **Screens stocks** using technical indicators (MA, RSI)
@@ -10,7 +10,7 @@ This is a complete quant trading pipeline that:
 3. **Backtests strategies** without look-ahead bias
 4. **Analyzes performance** with detailed metrics and visualizations
 
-## 📦 Project Structure
+## Project Structure
 
 ```
 stock-screener/
@@ -27,7 +27,7 @@ stock-screener/
 └── README.md               # This file
 ```
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -57,7 +57,7 @@ python backtest.py
 python performance_analyzer.py
 ```
 
-## 🔧 Configuration
+## Configuration
 
 ### Backtest Parameters
 
@@ -97,7 +97,7 @@ TEST_TICKERS = [
 ]
 ```
 
-## 📊 Understanding the Output
+## Understanding the Output
 
 ### 1. Backtest Results (`backtest_results.csv`)
 
@@ -125,7 +125,7 @@ The summary shows:
 - **Max Drawdown**: Largest peak-to-trough decline
 - **Beat Rate**: % of months beating benchmark
 
-## 📈 Generated Charts
+## Generated Charts
 
 After running the analyzer, you'll get:
 
@@ -136,7 +136,7 @@ After running the analyzer, you'll get:
 5. **stock_frequency.png** - Most selected stocks
 6. **score_vs_return.png** - Score effectiveness validation
 
-## 🧠 Key Concepts (For Learning)
+## Key Concepts (For Learning)
 
 ### 1. Look-Ahead Bias Prevention
 
@@ -218,7 +218,7 @@ Each month is independent, preventing data leakage.
 4. Test mean reversion strategies
 5. Implement ensemble models
 
-## ⚠️ Common Mistakes to Avoid
+## Common Mistakes to Avoid
 
 ### 1. Look-Ahead Bias
 ```python
@@ -243,7 +243,7 @@ signals = calculate_signals(df)
 - Ignoring brokerage, slippage, taxes
 - Solution: Deduct realistic costs from returns
 
-## 📚 Next Steps
+## Next Steps
 
 1. **Add More Indicators**
    - MACD (trend following)
@@ -265,7 +265,7 @@ signals = calculate_signals(df)
    - Feature engineering
    - Walk-forward optimization
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Error: "name 'month_str' is not defined"
 **Solution:** Use the fixed `backtest.py` file provided
@@ -279,14 +279,14 @@ signals = calculate_signals(df)
 ### No results showing
 **Solution:** Check date range - ensure there's historical data available
 
-## 📖 Resources
+## Resources
 
 - **QuantConnect**: Learn algorithmic trading
 - **Quantopian Lectures**: Free quant finance course
 - **Python for Finance**: Book by Yves Hilpisch
 - **NSE India**: Get list of all Indian stocks
 
-## 🤝 Contributing Ideas
+## Contributing Ideas
 
 1. Add more technical indicators
 2. Implement fundamental filters
@@ -294,14 +294,14 @@ signals = calculate_signals(df)
 4. Build portfolio optimization
 5. Create live trading integration
 
-## ⚡ Performance Tips
+## Performance Tips
 
 1. **Cache data**: Don't re-download same data
 2. **Parallel processing**: Screen stocks in parallel
 3. **Vectorization**: Use numpy instead of loops
 4. **Database**: Store historical data in SQLite
 
-## 🎯 Real Trading Checklist
+## Real Trading Checklist
 
 Before going live:
 - [ ] Backtest on 5+ years of data
