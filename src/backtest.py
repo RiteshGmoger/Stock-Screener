@@ -50,7 +50,7 @@ class Backtest:
         print("\n" + "✦" * 80)
         print(" QUANTITATIVE BACKTEST ENGINE ".center(80, "✦"))
         print("✦" * 80)
-        print(f"\n📊 Configuration:")
+        print(f"\n   Configuration:")
         print(f"   • Backtest Period: {backtest_months} months")
         print(f"   • Portfolio Size: Top {top_n} stocks")
         print(f"   • Holding Period: {holding_days} days")
@@ -276,7 +276,7 @@ class Backtest:
     def display_summary(self):
         """Display beautiful summary statistics"""
         if not self.results:
-            print("\n❌ No results to display\n")
+            print("\n No results to display\n")
             return
         
         df = pd.DataFrame(self.results)
@@ -286,7 +286,7 @@ class Backtest:
         print("✦" * 80 + "\n")
         
         # Monthly results table
-        print("📊 Monthly Performance:\n")
+        print(" Monthly Performance:\n")
         print(df.to_string(index=False))
         
         print("\n" + "✦" * 80)
@@ -377,12 +377,12 @@ class Backtest:
 
     def export_results(self):
         """Export results to CSV files"""
-        print("💾 Exporting results...\n")
+        print(" Exporting results...\n")
         
         # Export monthly results
         df = pd.DataFrame(self.results)
         df.to_csv("backtest_results.csv", index=False)
-        print(f"   ✅ Saved: backtest_results.csv")
+        print(f"    Saved: backtest_results.csv")
         
         # Export detailed picks
         picks_data = []
@@ -400,15 +400,15 @@ class Backtest:
         if picks_data:
             picks_df = pd.DataFrame(picks_data)
             picks_df.to_csv("backtest_picks.csv", index=False)
-            print(f"   ✅ Saved: backtest_picks.csv")
+            print(f"     Saved: backtest_picks.csv")
         
         # Export errors if any
         if self.errors:
             with open("backtest_errors.log", "w") as f:
                 f.write("\n".join(self.errors))
-            print(f"   ⚠️  Saved: backtest_errors.log ({len(self.errors)} errors)")
+            print(f"    Saved: backtest_errors.log ({len(self.errors)} errors)")
         
-        print("\n✅ Backtest Complete!\n")
+        print("\n Backtest Complete!\n")
         
     def run(self):
         """
@@ -427,7 +427,7 @@ class Backtest:
             
             label = screen_date.strftime("%b %Y")
             
-            print(f"\n[{idx:2d}/{self.backtest_months}] 📅 {label}")
+            print(f"\n[{idx:2d}/{self.backtest_months}] {label}")
             print(f"      Screen Date: {screen_date.date()}")
             """
             Without .date():
@@ -439,7 +439,7 @@ class Backtest:
             picks = self.screen_stocks(screen_date)
             
             if not picks:
-                print(f"      ❌ No valid picks this month")
+                print(f"         No valid picks this month")
                 self.results.append({
                     'Month': label,
                     'Portfolio_Return_%': 0,
@@ -450,7 +450,7 @@ class Backtest:
                 continue
             
             # Show picks
-            print(f"      ✅ Selected {len(picks)} stocks:")
+            print(f"         Selected {len(picks)} stocks:")
             for i, (t, s, p) in enumerate(picks, 1):
                 print(f"         {i}. {t:15s} Score: {s:+.2f}  Price: ₹{p:,.2f}")
             
@@ -479,7 +479,7 @@ class Backtest:
             })
             
             # Print results
-            print(f"      📊 Results:")
+            print(f"         Results:")
             print(f"         Portfolio: {portfolio_return:+7.2f}%")
             print(f"         Nifty 50:  {benchmark_return:+7.2f}%")
             print(f"         Alpha:     {outperformance:+7.2f}%")
