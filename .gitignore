@@ -17,3 +17,9 @@ env/
 # OS
 .DS_Store
 
+# Logs
+*.log
+
+# Project output folders
+outputs/
+logs/

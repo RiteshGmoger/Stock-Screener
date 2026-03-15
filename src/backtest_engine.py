@@ -517,7 +517,7 @@ if __name__ == "__main__":
 
     assert sharpe > 0,    "Sharpe should be positive for net positive returns"
     assert max_dd < 0,    "Max drawdown should be negative"
-    assert wr == 66.7,    f"Win rate should be 66.7%, got {wr}"
+    assert abs(wr - 66.7) < 0.1, f"Win rate should be ~66.7%, got {wr}"
     print("  ✓ Metric helper tests pass")
 
     # ── Test 4: BacktestEngine with fake forward prices ───────────── #

@@ -178,10 +178,17 @@ class StockScreener:
         for ticker, df in self.data.items():
             try:
                 close = df["Close"]
-                # yfinance sometimes returns a DataFrame instead of Series
-                # when multiple tickers are downloaded together
+                # yfinance (v0.2+) with parallel downloads returns a
+                # MultiIndex DataFrame where columns are ticker names.
+                # e.g. df["Close"] → DataFrame with column "RELIANCE.NS"
+                # Must extract the correct ticker's column — not just iloc[:,0]
+                # which returns the same stock for every ticker (the bug).
                 if isinstance(close, pd.DataFrame):
-                    close = close.iloc[:, 0]
+                    if ticker in close.columns:
+                        close = close[ticker]   # exact ticker match — correct
+                    else:
+                        close = close.iloc[:, 0]
+                close = close.squeeze()  # final guarantee: must be a Series
 
                 ma50  = calculate_moving_average(close, window=50)
                 ma200 = calculate_moving_average(close, window=200)
