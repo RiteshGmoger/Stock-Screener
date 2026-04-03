@@ -9,6 +9,18 @@ What's new vs v1:
     5. Bullish column in output — boolean flag for P2 signal condition
     6. screen_date parameter — can screen on past dates (needed for backtesting)
 
+🐛 BUG FIXES (v2.1):
+    - FIXED: yf.download() is NOT thread-safe. When 8 threads called it at once,
+             yfinance's shared internal session got corrupted — every ticker was
+             returning the SAME stock's data. Root cause: shared HTTP session state.
+             Fix: switched to yf.Ticker(t).history() which creates an isolated
+             Ticker object per call — completely thread-safe.
+
+    - FIXED: lookback_days=260 calendar days → only ~175 trading days.
+             MA200 needs 200+ trading days to compute — so MA200 was always NaN.
+             Fix: default raised to 400 calendar days → ~280 trading days.
+             Rule of thumb: trading_days ≈ calendar_days × (252 / 365)
+
 CLI Usage:
     python -m src.screener
     python -m src.screener --universe NIFTY50 --top 5
@@ -65,20 +77,23 @@ class StockScreener:
         4. export_results()        — CSV + printed table
 
     Usage:
-        screener = StockScreener(TEST_TICKERS, lookback_days=260)
+        screener = StockScreener(TEST_TICKERS, lookback_days=400)
         screener.run(top_n=5)
     """
 
     def __init__(
         self,
         tickers:       list,
-        lookback_days: int      = 260,
+        lookback_days: int      = 400,   # FIX: was 260 → only ~175 trading days, not enough for MA200
         screen_date:   datetime = None,
     ):
         """
         Args:
             tickers       : List of ticker symbols (e.g. ['RELIANCE.NS', 'TCS.NS'])
-            lookback_days : Days of historical data to download (default 260 ≈ 1 year)
+            lookback_days : Days of historical data to download.
+                            Default 400 ≈ 280 trading days (enough for MA200).
+                            Rule: trading_days ≈ calendar_days × (252 / 365)
+                            260 days (old default) → only ~175 trading days → MA200 always NaN!
             screen_date   : Date to screen ON. Defaults to today.
                             For backtesting, pass a past date.
                             Data downloaded will be: (screen_date - lookback_days) → screen_date
@@ -102,18 +117,30 @@ class StockScreener:
 
         This method runs inside a thread pool — one thread per ticker.
         Returns (ticker, df) or (ticker, None) on failure.
+
+        WHY yf.Ticker().history() instead of yf.download():
+            yf.download() uses a shared internal HTTP session and cache.
+            When multiple threads call it simultaneously, they corrupt
+            each other's state — all threads end up with the same stock's
+            data. This is a known yfinance thread-safety bug.
+
+            yf.Ticker(ticker) creates an isolated object per ticker.
+            Each instance has its own session → truly parallel-safe.
         """
         end_date   = self.screen_date
         start_date = end_date - timedelta(days=self.lookback_days)
 
         try:
-            df = yf.download(
-                ticker,
+            # ✅ FIX: Use Ticker.history() — thread-safe, clean DataFrame
+            # Each yf.Ticker() is an isolated object with its own HTTP session.
+            # The returned DataFrame always has flat columns: Open, High, Low,
+            # Close, Volume — no MultiIndex, no column-name surprises.
+            tk = yf.Ticker(ticker)
+            df = tk.history(
                 start=start_date.strftime("%Y-%m-%d"),
                 end=end_date.strftime("%Y-%m-%d"),
-                progress=False,
-                auto_adjust=True,
             )
+
             if df.empty:
                 logger.warning("%-20s  NO DATA returned", ticker)
                 return ticker, None
@@ -169,6 +196,11 @@ class StockScreener:
             - MA50 tells you short-term trend
             - MA200 tells you LONG-TERM trend
             - price > MA50 > MA200 = both timeframes aligned = highest conviction
+
+        Note on data length:
+            MA200 needs at least 200 rows (trading days) to compute.
+            With lookback_days=400, we get ~280 trading days — enough.
+            With lookback_days=260 (old default), we only got ~175 — too few!
         """
         logger.info("=" * 60)
         logger.info("STEP 2 — INDICATORS  (MA50, MA200, RSI14)")
@@ -177,18 +209,19 @@ class StockScreener:
         ok = 0
         for ticker, df in self.data.items():
             try:
+                # ✅ FIX: yf.Ticker().history() always returns a clean DataFrame
+                # with flat column names: Open, High, Low, Close, Volume.
+                # df["Close"] is always a proper pandas Series — no MultiIndex,
+                # no ambiguity. The old yf.download() bug of all tickers returning
+                # the same data is completely gone here.
                 close = df["Close"]
-                # yfinance (v0.2+) with parallel downloads returns a
-                # MultiIndex DataFrame where columns are ticker names.
-                # e.g. df["Close"] → DataFrame with column "RELIANCE.NS"
-                # Must extract the correct ticker's column — not just iloc[:,0]
-                # which returns the same stock for every ticker (the bug).
+
+                # Safety guard: in case some edge-case returns a DataFrame
                 if isinstance(close, pd.DataFrame):
-                    if ticker in close.columns:
-                        close = close[ticker]   # exact ticker match — correct
-                    else:
-                        close = close.iloc[:, 0]
-                close = close.squeeze()  # final guarantee: must be a Series
+                    close = close.iloc[:, 0]
+
+                # Ensure we have a clean 1D float Series for all indicator math
+                close = close.squeeze().astype(float)
 
                 ma50  = calculate_moving_average(close, window=50)
                 ma200 = calculate_moving_average(close, window=200)
@@ -363,7 +396,7 @@ Examples:
     python -m src.screener --date 2026-03-01 --top 5
 
   Full example:
-    python -m src.screener --universe NIFTY50 --top 5 --date 2026-02-24 --lookback 300
+    python -m src.screener --universe NIFTY50 --top 5 --date 2026-02-24 --lookback 400
         """,
     )
     parser.add_argument(
@@ -389,9 +422,9 @@ Examples:
     parser.add_argument(
         "--lookback",
         type=int,
-        default=260,
+        default=400,   # FIX: was 260 — not enough for MA200
         metavar="DAYS",
-        help="Days of historical data for indicators. Default: 260 (~1 year)",
+        help="Calendar days of historical data for indicators. Default: 400 (~280 trading days)",
     )
     return parser.parse_args()
 

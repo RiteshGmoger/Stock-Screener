@@ -1,322 +1,204 @@
-# Quantitative Stock Screener & Backtester
+# stock-screener
 
-A professional-grade quantitative trading system for Indian equities with proper backtesting methodology and zero look-ahead bias.
+A quantitative equity research system built on Indian stocks (Nifty 50 universe). Screens stocks using technical indicators, scores them, backtests the strategy month by month, and measures performance against the benchmark.
 
-## What This System Does
+Built from scratch as part of learning quant development — no libraries doing the heavy lifting, just raw logic.
 
-This is a complete quant trading pipeline that:
-1. **Screens stocks** using technical indicators (MA, RSI)
-2. **Scores stocks** using a weighted model
-3. **Backtests strategies** without look-ahead bias
-4. **Analyzes performance** with detailed metrics and visualizations
+---
 
-## Project Structure
+## What it does
+
+1. Downloads historical price data for a set of Nifty 50 stocks
+2. Computes indicators: SMA50, SMA200, EMA, RSI14
+3. Scores each stock using a weighted signal model (trend + momentum)
+4. Applies a bullish regime filter: `price > SMA50 > SMA200 AND 40 < RSI < 70`
+5. Selects the top N stocks
+6. Simulates holding them for 30 days and measures actual returns
+7. Compares against Nifty 50 benchmark
+8. Repeats this every month (walk-forward — no look-ahead bias)
+9. Runs regime analysis (bull/bear/flat) and drawdown analysis on the results
+
+The scoring model:
+
+```
+score = 0.4 × MA_signal + 0.6 × RSI_signal
+```
+
+Range is -1.0 to +1.0. RSI gets more weight because momentum tends to lead price.
+
+---
+
+## Project structure
 
 ```
 stock-screener/
 ├── src/
-│   ├── backtest.py          # Enhanced backtest engine
-│   ├── screener.py          # Stock screening system
-│   ├── indicators.py        # Technical indicators (MA, RSI)
-│   ├── scoring.py           # Stock scoring model
-│   ├── filters.py           # (empty, for future filters)
-│   └── stock_list.py        # Stock universe
-├── performance_analyzer.py  # Performance visualization
-├── backtest_results.csv     # Monthly results (generated)
-├── backtest_picks.csv       # Detailed picks (generated)
-└── README.md               # This file
+│   ├── screener.py            # main screening pipeline
+│   ├── indicators.py          # SMA, EMA, RSI calculations
+│   ├── scoring.py             # scoring model (StockScorer)
+│   ├── backtest.py            # walk-forward backtester
+│   ├── backtest_engine.py     # modular core engine (data-independent)
+│   ├── walk_forward.py        # validation runner
+│   ├── walkforward_metrics.py # sharpe, win rate, edge calculation
+│   ├── portfolio_optimizer.py # volatility-adjusted position sizing
+│   ├── performance_analyzer.py# equity curves, drawdown, score vs return
+│   ├── regime_analysis.py     # bull/bear/flat market breakdown
+│   ├── drawdown_analysis.py   # max drawdown, equity curve
+│   ├── plot_walkforward.py    # plots equity curve from results
+│   └── stock_list.py          # stock universe (15 Nifty 50 tickers)
+├── outputs/
+│   ├── backtests/             # backtest_results.csv, backtest_picks.csv
+│   ├── plots/                 # equity curve png, drawdown csv
+│   ├── walkforward/           # walkforward_results.csv, metrics.csv
+│   ├── screener_results.csv
+│   └── regime_summary.csv
+├── tests/
+│   ├── demo_indicators.py
+│   └── test_screener_dates.py
+├── logs/
+│   └── screener.log
+└── research/                  # (notes, experiments — not tracked)
 ```
-
-## Quick Start
-
-### Installation
-
-```bash
-# Create virtual environment
-python -m venv quant
-source quant/bin/activate  # On Windows: quant\Scripts\activate
-
-# Install dependencies
-pip install pandas numpy yfinance matplotlib seaborn python-dateutil
-```
-
-### Run Backtest
-
-```bash
-# Run the enhanced backtest
-python -m src.backtest
-
-# Or use the original location
-python backtest.py
-```
-
-### Analyze Results
-
-```bash
-# Generate performance report with charts
-python performance_analyzer.py
-```
-
-## Configuration
-
-### Backtest Parameters
-
-Edit in `backtest.py`:
-
-```python
-bt = CorrectBacktest(
-    backtest_months=12,    # Number of months to test
-    lookback_days=260,     # Historical data for indicators
-    top_n=3,              # Number of stocks to hold
-    holding_days=30,      # Days to hold each position
-    start_year=2024,      # Backtest start year
-    start_month=2         # Backtest start month
-)
-```
-
-### Scoring Weights
-
-Edit in `scoring.py`:
-
-```python
-scorer = StockScorer(
-    ma_weight=0.4,   # Weight for trend (MA50)
-    rsi_weight=0.6   # Weight for momentum (RSI)
-)
-```
-
-### Stock Universe
-
-Edit `stock_list.py` to add/remove stocks:
-
-```python
-TEST_TICKERS = [
-    'RELIANCE.NS',
-    'TCS.NS',
-    # Add more tickers here
-]
-```
-
-## Understanding the Output
-
-### 1. Backtest Results (`backtest_results.csv`)
-
-| Month    | Portfolio_Return_% | Nifty_Return_% | Outperformance_% | Num_Stocks |
-|----------|-------------------|----------------|------------------|------------|
-| Feb 2024 | +5.23             | +3.45          | +1.78            | 3          |
-
-- **Portfolio_Return_%**: Your strategy's return
-- **Nifty_Return_%**: Benchmark (Nifty 50) return
-- **Outperformance_%**: Alpha (Portfolio - Benchmark)
-- **Num_Stocks**: Number of stocks held that month
-
-### 2. Detailed Picks (`backtest_picks.csv`)
-
-| Month    | Ticker      | Score | Entry_Price | Exit_Price | Return_% |
-|----------|-------------|-------|-------------|------------|----------|
-| Feb 2024 | TCS.NS      | 0.88  | 3500.00     | 3675.00    | +5.00    |
-
-### 3. Performance Metrics
-
-The summary shows:
-- **Total Return**: Cumulative returns over entire period
-- **Win Rate**: % of profitable months
-- **Sharpe Ratio**: Risk-adjusted return (higher is better)
-- **Max Drawdown**: Largest peak-to-trough decline
-- **Beat Rate**: % of months beating benchmark
-
-## Generated Charts
-
-After running the analyzer, you'll get:
-
-1. **cumulative_returns.png** - Portfolio vs Benchmark over time
-2. **monthly_returns.png** - Bar chart of monthly performance
-3. **outperformance.png** - Alpha (excess returns) each month
-4. **drawdown.png** - Underwater chart showing losses
-5. **stock_frequency.png** - Most selected stocks
-6. **score_vs_return.png** - Score effectiveness validation
-
-## Key Concepts (For Learning)
-
-### 1. Look-Ahead Bias Prevention
-
-**WRONG WAY (Look-ahead bias):**
-```python
-# Using all data including future
-df = download_all_data()
-picks = screen_stocks(df)  # Uses future prices!
-```
-
-**RIGHT WAY (No bias):**
-```python
-# Only use data before screen date
-df = download_data(end=screen_date)  # Historical only
-picks = screen_stocks(df)
-# THEN download future to measure returns
-```
-
-### 2. Scoring System
-
-The score combines two signals:
-
-**MA Signal (Trend):**
-- Price > MA50 + 1% → Score: +1 (uptrend)
-- Price near MA50 → Score: 0 (neutral)
-- Price < MA50 - 1% → Score: -1 (downtrend)
-
-**RSI Signal (Momentum):**
-- RSI > 60 → Score: +1 (strong momentum)
-- 40 ≤ RSI ≤ 60 → Score: 0 (neutral)
-- RSI < 40 → Score: -0.5 (weak/oversold)
-
-**Final Score:**
-```
-Score = 0.4 × MA_Signal + 0.6 × RSI_Signal
-```
-
-Range: -1.0 to +1.0
-
-### 3. Signal Interpretation
-
-| Score    | Signal       | Meaning                              |
-|----------|--------------|--------------------------------------|
-| ≥ 0.7    | 🔥 STRONG BUY | Trend up + Strong momentum          |
-| 0.3-0.7  | 👍 BUY        | Something positive                   |
-| -0.3-0.3 | ➖ HOLD       | Neutral, no edge                     |
-| < -0.3   | ⛔ SELL       | Trend broken or weak momentum        |
-
-### 4. Walk-Forward Logic
-
-The backtest walks forward month by month:
-
-```
-Jan 2024: Screen stocks → Select top 3 → Hold 30 days → Measure return
-Feb 2024: Screen stocks → Select top 3 → Hold 30 days → Measure return
-...
-```
-
-Each month is independent, preventing data leakage.
-
-## 🎓 Learning Path
-
-### Phase 1: Understand the Code (Week 1-2)
-1. Read `indicators.py` - How MA and RSI work
-2. Read `scoring.py` - How signals combine
-3. Read `screener.py` - How stocks are selected
-4. Read `backtest.py` - How testing works
-
-### Phase 2: Experiment (Week 3-4)
-1. Change scoring weights (try 0.5/0.5, 0.3/0.7)
-2. Add new indicators (MACD, Bollinger Bands)
-3. Change holding period (15 days, 60 days)
-4. Test different universes (Nifty Next 50, Bank Nifty)
-
-### Phase 3: Advanced (Week 5-8)
-1. Add volume filters
-2. Implement stop-loss logic
-3. Add position sizing (risk management)
-4. Test mean reversion strategies
-5. Implement ensemble models
-
-## Common Mistakes to Avoid
-
-### 1. Look-Ahead Bias
-```python
-# WRONG
-df = download_all_data()
-signals = calculate_signals(df)  # Uses future!
-
-# RIGHT
-df = download_data(end=today)
-signals = calculate_signals(df)
-```
-
-### 2. Survivorship Bias
-- Only testing stocks that still exist today
-- Solution: Include delisted stocks in universe
-
-### 3. Overfitting
-- Creating complex rules that fit past perfectly
-- Solution: Keep it simple, test out-of-sample
-
-### 4. Transaction Costs
-- Ignoring brokerage, slippage, taxes
-- Solution: Deduct realistic costs from returns
-
-## Next Steps
-
-1. **Add More Indicators**
-   - MACD (trend following)
-   - Bollinger Bands (volatility)
-   - ATR (volatility measure)
-
-2. **Implement Filters**
-   - Volume filter (liquidity)
-   - Market cap filter
-   - Sector diversification
-
-3. **Risk Management**
-   - Position sizing (Kelly Criterion)
-   - Stop-loss rules
-   - Portfolio heat limits
-
-4. **Machine Learning**
-   - Random Forest for scoring
-   - Feature engineering
-   - Walk-forward optimization
-
-## Troubleshooting
-
-### Error: "name 'month_str' is not defined"
-**Solution:** Use the fixed `backtest.py` file provided
-
-### Error: "No module named 'src'"
-**Solution:** Run from project root directory
-
-### Error: Data download fails
-**Solution:** Check internet connection, verify ticker symbols
-
-### No results showing
-**Solution:** Check date range - ensure there's historical data available
-
-## Resources
-
-- **QuantConnect**: Learn algorithmic trading
-- **Quantopian Lectures**: Free quant finance course
-- **Python for Finance**: Book by Yves Hilpisch
-- **NSE India**: Get list of all Indian stocks
-
-## Contributing Ideas
-
-1. Add more technical indicators
-2. Implement fundamental filters
-3. Add sector rotation strategy
-4. Build portfolio optimization
-5. Create live trading integration
-
-## Performance Tips
-
-1. **Cache data**: Don't re-download same data
-2. **Parallel processing**: Screen stocks in parallel
-3. **Vectorization**: Use numpy instead of loops
-4. **Database**: Store historical data in SQLite
-
-## Real Trading Checklist
-
-Before going live:
-- [ ] Backtest on 5+ years of data
-- [ ] Test on out-of-sample period
-- [ ] Account for transaction costs
-- [ ] Add slippage modeling
-- [ ] Implement risk limits
-- [ ] Paper trade for 3+ months
-- [ ] Have contingency plans
 
 ---
 
-## Risk & Regime Analysis
-- Max drawdown: X%
-- Bull markets: +Y% monthly edge
-- Bear markets: +Z% capital preservation
-- Flat markets: no overtrading (near-zero exposure)
-- Position sizing: half-Kelly + volatility targeting
+## Setup
+
+```bash
+git clone https://github.com/<your-username>/stock-screener
+cd stock-screener
+
+conda create -n quant python=3.11
+conda activate quant
+
+pip install pandas numpy yfinance matplotlib seaborn python-dateutil
+```
+
+---
+
+## How to run
+
+**Run the screener** (shows top stocks right now):
+
+```bash
+python -m src.screener --top 5
+```
+
+**Run the backtest** (walks through last 12 months):
+
+```bash
+python -m src.backtest
+```
+
+**Run walk-forward validation**:
+
+```bash
+python -m src.walk_forward
+```
+
+**Analyze performance** (charts + metrics):
+
+```bash
+python -m src.performance_analyzer
+```
+
+**Portfolio weights** (volatility-adjusted sizing):
+
+```bash
+python -m src.portfolio_optimizer
+```
+
+---
+
+## Output files
+
+| File | What's in it |
+|------|-------------|
+| `backtest_results.csv` | Monthly portfolio return, Nifty return, alpha |
+| `backtest_picks.csv` | Per-stock: entry, exit, score, return |
+| `walkforward_results.csv` | Same as above but from walk-forward runner |
+| `walkforward_metrics.csv` | Sharpe, win rate, avg edge |
+| `regime_summary.csv` | Performance split by bull/bear/flat |
+| `drawdown_curve.csv` | Equity and drawdown per period |
+| `walkforward_equity_curve.png` | Portfolio vs Nifty equity curve |
+
+---
+
+## Backtest parameters
+
+Edit at the bottom of `src/backtest.py`:
+
+```python
+bt = CorrectBacktest(
+    backtest_months=12,
+    lookback_days=260,
+    top_n=3,
+    holding_days=30,
+    start_year=2024,
+    start_month=1,
+)
+```
+
+---
+
+## Scoring weights
+
+Edit in `src/scoring.py`:
+
+```python
+scorer = StockScorer(
+    ma_weight=0.4,
+    rsi_weight=0.6
+)
+```
+
+---
+
+## Stock universe
+
+Edit `src/stock_list.py`. Currently 15 Nifty 50 large-caps across banking, IT, pharma, energy, and FMCG. To use the full list, pass `use_test=False` to `get_stock_list()`.
+
+---
+
+## Metrics tracked
+
+- Total return vs benchmark
+- Sharpe ratio
+- Sortino ratio  
+- Max drawdown
+- Win rate (profitable months)
+- Beat rate (months > Nifty)
+- Avg monthly alpha
+- Score-to-return correlation (checks if the scoring model actually works)
+
+---
+
+## No look-ahead bias — how it works
+
+Every month:
+1. Screener downloads data with `end=screen_date` — it never sees the future
+2. Returns are measured using data downloaded *after* `screen_date`
+3. These two never overlap
+
+This is what makes it a real backtest and not just curve-fitting.
+
+---
+
+## What's next
+
+- [ ] Full Nifty 50 universe (currently 15 stocks)
+- [ ] Transaction cost and slippage modeling
+- [ ] More indicators (MACD, Bollinger Bands, ATR)
+- [ ] Factor-based scoring (momentum, mean reversion, quality)
+- [ ] Stop-loss logic
+- [ ] C++ execution layer for low-latency work
+
+---
+
+## Context
+
+2nd year CSE student building toward quant development. This project is an attempt to actually understand how a real quant pipeline works — not tutorials, just building it piece by piece. Still early, lots to improve, but the fundamentals (no look-ahead bias, proper walk-forward, real metrics) are there.
+
+---
+
+*For research only. Not financial advice.*

@@ -100,10 +100,6 @@ class CorrectBacktest:
             backtest_months, top_n, holding_days, start_year, start_month,
         )
 
-    # ---------------------------------------------------------------- #
-    #  Core: Screen on a past date (zero look-ahead)                   #
-    # ---------------------------------------------------------------- #
-
     def _screen_on_date(self, screen_date: datetime) -> list:
         """
         Run the screener on a specific historical date.
