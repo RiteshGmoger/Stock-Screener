@@ -1,40 +1,37 @@
 """
-screener.py — Production-Grade Stock Screener (P2 Complete)
+    This pulls market data, computes indicators (MA50, MA200, RSI),
+    and ranks stocks based on trend + momentum.
 
-What's new vs v1:
-    1. CLI via argparse — run from terminal with arguments
-    2. Parallel data download — ThreadPoolExecutor (15 stocks in ~3s not 30s)
-    3. Logging module — replaces all print() statements
-    4. SMA200 signal — price > SMA50 > SMA200 = strong uptrend
-    5. Bullish column in output — boolean flag for P2 signal condition
-    6. screen_date parameter — can screen on past dates (needed for backtesting)
-
-🐛 BUG FIXES (v2.1):
-    - FIXED: yf.download() is NOT thread-safe. When 8 threads called it at once,
-             yfinance's shared internal session got corrupted — every ticker was
-             returning the SAME stock's data. Root cause: shared HTTP session state.
-             Fix: switched to yf.Ticker(t).history() which creates an isolated
-             Ticker object per call — completely thread-safe.
-
-    - FIXED: lookback_days=260 calendar days → only ~175 trading days.
-             MA200 needs 200+ trading days to compute — so MA200 was always NaN.
-             Fix: default raised to 400 calendar days → ~280 trading days.
-             Rule of thumb: trading_days ≈ calendar_days × (252 / 365)
-
-CLI Usage:
-    python -m src.screener
-    python -m src.screener --universe NIFTY50 --top 5
-    python -m src.screener --universe TEST --top 3 --date 2026-03-15
-    python -m src.screener --help
+    What it does:
+        downloads data of stocks(fast)
+        calculates indicators
+        scores each stock
+        outputs ranked results + CSV
 """
 
 import argparse
-import logging
-import sys
+"""
+    lets you run your script like - python -m src.screener --top 5 --date 2026-03-01
+    user can control behavior from terminal
+"""
+import logging # Better version of print()
+import sys # Access to system-level stuff
+"""
+    Python shows warnings like - FutureWarning: something will break later
+    hides warnings like - FutureWarning from pandas/yfinance
+"""
 import warnings
 warnings.filterwarnings("ignore", category=FutureWarning)
 
 import pandas as pd
+"""
+    This is for parallel execution
+    
+    Problem without it -
+        download 15 stocks one by one - slow (~30 sec)
+    With this -
+        download multiple stocks at same time - fast (~3–5 sec)
+"""
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta
 
@@ -43,12 +40,6 @@ import yfinance as yf
 from src.indicators import calculate_moving_average, calculate_rsi
 from src.scoring    import StockScorer
 from src.stock_list import TEST_TICKERS, NIFTY_50_TICKERS
-
-
-# ------------------------------------------------------------------ #
-#  Logging setup                                                       #
-#  Logs go to BOTH terminal (stdout) AND screener.log file            #
-# ------------------------------------------------------------------ #
 
 logging.basicConfig(
     level=logging.INFO,
@@ -61,10 +52,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-
-# ------------------------------------------------------------------ #
-#  StockScreener                                                       #
-# ------------------------------------------------------------------ #
 
 class StockScreener:
     """
@@ -107,9 +94,6 @@ class StockScreener:
         self.output_file   = "screener_results.csv"
         self.scorer        = StockScorer(ma_weight=0.4, rsi_weight=0.6)
 
-    # ---------------------------------------------------------------- #
-    #  Step 1: Parallel Download                                       #
-    # ---------------------------------------------------------------- #
 
     def _download_one(self, ticker: str) -> tuple:
         """
@@ -183,10 +167,7 @@ class StockScreener:
             "Downloaded: %d / %d tickers\n",
             len(self.data), len(self.tickers)
         )
-
-    # ---------------------------------------------------------------- #
-    #  Step 2: Indicators                                               #
-    # ---------------------------------------------------------------- #
+        
 
     def calculate_indicators(self) -> None:
         """
@@ -240,9 +221,6 @@ class StockScreener:
 
         logger.info("Indicators ready: %d / %d\n", ok, len(self.data))
 
-    # ---------------------------------------------------------------- #
-    #  Step 3: Signals & Scoring                                        #
-    # ---------------------------------------------------------------- #
 
     def generate_signals(self) -> None:
         """
@@ -327,9 +305,6 @@ class StockScreener:
         self.results["Rank"] = self.results.index + 1
         logger.info("Scored %d stocks\n", len(self.results))
 
-    # ---------------------------------------------------------------- #
-    #  Step 4: Export                                                   #
-    # ---------------------------------------------------------------- #
 
     def export_results(self, top_n: int = 5) -> None:
         """
@@ -361,9 +336,6 @@ class StockScreener:
         print(self.results[display_cols].head(top_n).to_string(index=False))
         print("=" * 85 + "\n")
 
-    # ---------------------------------------------------------------- #
-    #  Full pipeline                                                    #
-    # ---------------------------------------------------------------- #
 
     def run(self, top_n: int = 5) -> None:
         """Run the complete 4-step pipeline."""
@@ -374,10 +346,6 @@ class StockScreener:
         self.export_results(top_n=top_n)
         logger.info("SCREENER COMPLETE ✓\n")
 
-
-# ------------------------------------------------------------------ #
-#  CLI — argparse                                                      #
-# ------------------------------------------------------------------ #
 
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
