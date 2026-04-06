@@ -14,8 +14,7 @@ import argparse
     lets you run your script like - python -m src.screener --top 5 --date 2026-03-01
     user can control behavior from terminal
 """
-import logging # Better version of print()
-import sys # Access to system-level stuff
+
 """
     Python shows warnings like - FutureWarning: something will break later
     hides warnings like - FutureWarning from pandas/yfinance
@@ -41,8 +40,12 @@ from src.indicators import calculate_moving_average, calculate_rsi
 from src.scoring    import StockScorer
 from src.stock_list import TEST_TICKERS, NIFTY_50_TICKERS
 
+import logging # Better version of print()
+import sys # Access to system-level stuff
+
 logging.basicConfig(
-    level=logging.INFO,format="%(asctime)s | %(levelname)-8s | %(message)s",
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(message)s",
     datefmt="%H:%M:%S",
     handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("screener.log", mode="a"),]
 )
@@ -343,7 +346,7 @@ class StockScreener:
         logger.info("SCREENER COMPLETE ✓\n")
 
 
-def _parse_args() -> argparse.Namespace:
+def parse_args() -> argparse.Namespace: # just an object holding values
     parser = argparse.ArgumentParser(
         prog="screener",
         description="Quantitative Stock Screener — NIFTY50",
@@ -367,21 +370,21 @@ Examples:
         "--universe",
         choices=["NIFTY50", "TEST"],
         default="TEST",
-        help="Stock universe. NIFTY50=15 stocks, TEST=15 stocks (same for now). Default: TEST",
+        help="Stock universe - NIFTY50=15 stocks, TEST=15 stocks (Default: TEST)",
     )
     parser.add_argument(
         "--top",
         type=int,
         default=5,
         metavar="N",
-        help="Number of top stocks to display. Default: 5",
+        help="Number of top stocks to display (Default: 5)",
     )
     parser.add_argument(
         "--date",
         type=str,
         default=None,
         metavar="YYYY-MM-DD",
-        help="Screen date. Default: today. Past dates screen on historical data.",
+        help="Screen date (Default: today). Past dates screen on historical data.",
     )
     parser.add_argument(
         "--lookback",
@@ -394,12 +397,10 @@ Examples:
 
 
 if __name__ == "__main__":
-    args = _parse_args()
+    args = parse_args()
 
-    # Resolve tickers
     tickers = NIFTY_50_TICKERS if args.universe == "NIFTY50" else TEST_TICKERS
 
-    # Resolve screen date
     screen_date = datetime.now()
     if args.date:
         try:
@@ -408,10 +409,7 @@ if __name__ == "__main__":
             logger.error("Invalid date format '%s'. Use YYYY-MM-DD.", args.date)
             sys.exit(1)
 
-    # Run
-    screener = StockScreener(
-        tickers=tickers,
-        lookback_days=args.lookback,
-        screen_date=screen_date,
-    )
+    screener = StockScreener(tickers=tickers,lookback_days=args.lookback,
+        screen_date=screen_date)
+    
     screener.run(top_n=args.top)
