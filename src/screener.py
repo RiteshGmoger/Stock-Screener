@@ -42,13 +42,9 @@ from src.scoring    import StockScorer
 from src.stock_list import TEST_TICKERS, NIFTY_50_TICKERS
 
 logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(message)s",
+    level=logging.INFO,format="%(asctime)s | %(levelname)-8s | %(message)s",
     datefmt="%H:%M:%S",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("screener.log", mode="a"),
-    ],
+    handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("screener.log", mode="a"),]
 )
 logger = logging.getLogger(__name__)
 
