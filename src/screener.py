@@ -201,7 +201,10 @@ class StockScreener:
                     close = close.iloc[:, 0]
 
                 # Ensure we have a clean 1D float Series for all indicator math
-                close = close.squeeze().astype(float)
+                close = close.squeeze().astype(float).dropna()
+                if close.empty:
+                    logger.warning("%-20s  no valid data after cleaning", ticker)
+                    continue
 
                 ma50  = calculate_moving_average(close, window=50)
                 ma200 = calculate_moving_average(close, window=200)
@@ -352,19 +355,19 @@ def parse_args() -> argparse.Namespace: # just an object holding values
         description="Quantitative Stock Screener — NIFTY50",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Examples:
-  Run on today's data (default TEST universe, top 5):
-    python -m src.screener
+            Examples:
+                Run on today's data (default TEST universe, top 5):
+                python -m src.screener
 
-  Run on full NIFTY50, show top 3:
-    python -m src.screener --universe NIFTY50 --top 3
+                Run on full NIFTY50, show top 3:
+                python -m src.screener --universe NIFTY50 --top 3
 
-  Screen on a specific past date (useful for testing):
-    python -m src.screener --date 2026-03-01 --top 5
+                Screen on a specific past date (useful for testing):
+                python -m src.screener --date 2026-03-01 --top 5
 
-  Full example:
-    python -m src.screener --universe NIFTY50 --top 5 --date 2026-02-24 --lookback 400
-        """,
+                Full example:
+                python -m src.screener --universe NIFTY50 --top 5 --date 2026-02-24 --lookback 400
+            """
     )
     parser.add_argument(
         "--universe",
