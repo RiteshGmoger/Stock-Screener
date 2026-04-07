@@ -116,9 +116,6 @@ class StockScorer:
         else:
             base = 0.0
 
-        """
-            MA200 for confirmation
-        """
         if ma200 is not None and not pd.isna(ma200) and ma200 > 0:
             if base > 0 and ma50 > ma200:
                 """

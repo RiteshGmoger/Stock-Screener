@@ -69,7 +69,7 @@ class StockScreener:
         self.scorer        = StockScorer(ma_weight=0.4, rsi_weight=0.6)
 
 
-    def _download_one(self, ticker: str) -> tuple:
+    def download_one(self, ticker: str) -> tuple:
         """
             Download price data (OHLCV) for one stock
 
@@ -96,14 +96,14 @@ class StockScreener:
             df = tk.history(start=start_date.strftime("%Y-%m-%d"),end=end_date.strftime("%Y-%m-%d"))
 
             if df.empty:
-                logger.warning("%-20s  NO DATA returned", ticker)
+                logger.warning("%-20s 🔸  NO DATA returned".center(60), ticker)
                 return ticker, None
 
-            logger.info("%-20s  ✓  %d rows downloaded", ticker, len(df))
+            logger.info("%-20s 🔹  %d rows downloaded".center(44), ticker, len(df))
             return ticker, df
 
         except Exception as exc:
-            logger.error("%-20s  DOWNLOAD ERROR: %s", ticker, str(exc)[:60])
+            logger.error("%-20s  DOWNLOAD ERROR: %s".center(60), ticker, str(exc)[:60])
             return ticker, None
 
     def download_data(self, max_workers: int = 8) -> None:
@@ -121,52 +121,78 @@ class StockScreener:
                 have 8 workers ready to download stocks
                 Submit all downloads at once
             """
-            futures = {pool.submit(self._download_one, t): t for t in self.tickers}
+            futures = {pool.submit(self.download_one, t): t for t in self.tickers}
+            """
+                start downloading this stock
+                What pool.submit does:
+                    runs download_one(ticker) in another thread
+            """
 
-            for future in as_completed(futures):
-                ticker, df = future.result()
+            for future in as_completed(futures): # give me results as soon as each finishes
+                ticker, df = future.result() # ("RELIANCE.NS", dataframe)
                 if df is not None:
                     self.data[ticker] = df
-
-        logger.info("Downloaded Stocks - %d / %d tickers\n".center(60),len(self.data), len(self.tickers))
+        
+        logger.info("\n")
+        logger.info("Downloaded %d / %d Stocks\n".center(60),len(self.data), len(self.tickers))
         
 
     def calculate_indicators(self) -> None:
         """
-        Calculate MA50, MA200, RSI14 for every downloaded ticker.
+            Compute indicators for each stock using closing prices.
 
-        Why MA200?
-            - MA50 tells you short-term trend
-            - MA200 tells you LONG-TERM trend
-            - price > MA50 > MA200 = both timeframes aligned = highest conviction
+            We calculate:
+                MA50  → short-term trend
+                MA200 → long-term trend
+                RSI14 → momentum
 
-        Note on data length:
-            MA200 needs at least 200 rows (trading days) to compute.
-            With lookback_days=400, we get ~280 trading days — enough.
-            With lookback_days=260 (old default), we only got ~175 — too few!
+            MA50 reacts faster, MA200 is slower
+            If price > MA50 > MA200, both short and long trends are aligned
+            which usually means a strong and stable uptrend
+
+            MA200 needs enough data (200+ trading days).
+            That’s why we use ~400 calendar days -- gives enough history.
         """
-        logger.info("=" * 60)
-        logger.info("STEP 2 — INDICATORS  (MA50, MA200, RSI14)")
-        logger.info("=" * 60)
+        logger.info("—" * 60)
+        logger.info("INDICATORS  (MA50, MA200, RSI14)".center(60))
+        logger.info("—" * 60)
 
         ok = 0
         for ticker, df in self.data.items():
             try:
-                # ✅ FIX: yf.Ticker().history() always returns a clean DataFrame
-                # with flat column names: Open, High, Low, Close, Volume.
-                # df["Close"] is always a proper pandas Series — no MultiIndex,
-                # no ambiguity. The old yf.download() bug of all tickers returning
-                # the same data is completely gone here.
+                """
+                    yf.Ticker().history() always returns a clean DataFrame
+                    with flat column names : Open, High, Low, Close, Volume.
+                    df["Close"] is always a proper pandas Series — no MultiIndex
+                """
                 close = df["Close"]
 
-                # Safety guard: in case some edge-case returns a DataFrame
+                # in case some edge-case return a DataFrame
                 if isinstance(close, pd.DataFrame):
-                    close = close.iloc[:, 0]
+                    close = close.iloc[:, 0] # take all rows first colun(0)
 
-                # Ensure we have a clean 1D float Series for all indicator math
+                # Ensure we have a clean 1D float Series for all indicators math
                 close = close.squeeze().astype(float).dropna()
+                """
+                    squeeze():
+                        removes extra dimensions
+                    ex:
+                        [[100], [102]] -> [100, 102]
+                        astype(float)
+
+                    ensures all values are numbers
+                    ex:
+                        "100" -> 100.0
+                        
+                    dropna():
+                        removes missing values:
+                        [100, NaN, 102] -> [100, 102]
+                """
                 if close.empty:
-                    logger.warning("%-20s  no valid data after cleaning", ticker)
+                    logger.warning("%-20s  no valid data after cleaning".center(50), ticker)
+                    continue
+                if len(close) < 200:
+                    logger.warning("%-20s  not enough data (<200 rows)".center(40), ticker)
                     continue
 
                 ma50  = calculate_moving_average(close, window=50)
@@ -182,27 +208,34 @@ class StockScreener:
                 ok += 1
 
             except Exception as exc:
-                logger.error("%-20s  indicator error: %s", ticker, exc)
+                logger.error("%-20s  indicator error: %s".center(50), ticker, exc)
 
-        logger.info("Indicators ready: %d / %d\n", ok, len(self.data))
+        logger.info("\n")
+        logger.info("Indicators ready: %d / %d\n".center(60), ok, len(self.data))
 
 
     def generate_signals(self) -> None:
         """
-        Score every stock and apply the P2 bullish filter.
+            Score each stock using trend + momentum, then check if its actually worth considering
 
-        Bullish condition (from roadmap):
-            IF price > SMA50 > SMA200 AND 40 < RSI < 70
-            THEN SIGNAL = BULLISH
+                Take latest price, MA50, MA200, RSI
+                Convert them into a score (how strong the setup is)
+                Also apply a strict “bullish” filter
 
-        Notes:
-            - Stocks with insufficient data for MA200 get scored
-              on MA50 + RSI only (graceful degradation)
-            - Results are sorted by Combined_Score descending
+            Bullish rule:
+                price > MA50 > MA200  -> trend is clearly up (short + long aligned)
+                40 < RSI < 70         -> momentum is healthy but not overheated
+
+            Each stock gets:
+                score   → strength of setup
+                signal  → BUY / SELL etc.
+                bullish → True/False 
+
+            All stocks are sorted by score (best → worst)
         """
-        logger.info("=" * 60)
-        logger.info("STEP 3 — SIGNALS & SCORING")
-        logger.info("=" * 60)
+        logger.info("—" * 60)
+        logger.info("SIGNALS & SCORING".center(60))
+        logger.info("—" * 60)
 
         rows = []
 
@@ -216,17 +249,13 @@ class StockScreener:
                 price   = float(close.iloc[-1])
                 v_ma50  = float(ma50.iloc[-1])
                 v_rsi   = float(rsi14.iloc[-1])
-
-                # MA200: only use if we have enough data (200+ rows)
                 last_ma200 = ma200.iloc[-1]
                 v_ma200 = float(last_ma200) if not pd.isna(last_ma200) else None
 
-                # Skip if core indicators are not ready
                 if pd.isna(v_ma50) or pd.isna(v_rsi):
-                    logger.warning("%-20s  skipped — MA50 or RSI not ready", ticker)
+                    logger.warning("%-20s  skipped — MA50 or RSI not ready".center(50), ticker)
                     continue
 
-                # Score (with MA200 if available)
                 score    = self.scorer.calculate_score(price, v_ma50, v_rsi, v_ma200)
                 signal   = self.scorer.get_interpretation(score)
                 ma_diff  = round((price - v_ma50) / v_ma50 * 100, 2)
@@ -275,9 +304,9 @@ class StockScreener:
         """
         Save results to CSV and print top N stocks to terminal.
         """
-        logger.info("=" * 60)
+        logger.info("—" * 60)
         logger.info("STEP 4 — EXPORT")
-        logger.info("=" * 60)
+        logger.info("—" * 60)
 
         if self.results is None or self.results.empty:
             logger.error("No results to export")
@@ -291,15 +320,15 @@ class StockScreener:
             "Rank", "Ticker", "Price", "MA50", "MA200",
             "RSI14", "Combined_Score", "Signal", "Bullish"
         ]
-        print("\n" + "=" * 85)
+        print("\n" + "—" * 85)
         print(
             f"  TOP {top_n} STOCKS  "
             f"[screened on {self.screen_date.strftime('%Y-%m-%d')}]"
-            .center(85, "=")
+            .center(85, "—")
         )
-        print("=" * 85)
+        print("—" * 85)
         print(self.results[display_cols].head(top_n).to_string(index=False))
-        print("=" * 85 + "\n")
+        print("—" * 85 + "\n")
 
 
     def run(self, top_n: int = 5) -> None:
