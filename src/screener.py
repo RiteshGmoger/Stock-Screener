@@ -45,7 +45,7 @@ import sys # Access to system-level stuff
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(message)s",
+    format="%(asctime)s ||   %(levelname)s   ||    %(message)s",
     datefmt="%H:%M:%S",
     handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("screener.log", mode="a"),]
 )
@@ -53,76 +53,47 @@ logger = logging.getLogger(__name__)
 
 
 class StockScreener:
-    """
-    Complete stock screening pipeline.
-
-    Steps:
-        1. download_data()         — parallel download via ThreadPoolExecutor
-        2. calculate_indicators()  — MA50, MA200, RSI14
-        3. generate_signals()      — score + bullish flag
-        4. export_results()        — CSV + printed table
-
-    Usage:
-        screener = StockScreener(TEST_TICKERS, lookback_days=400)
-        screener.run(top_n=5)
-    """
-
-    def __init__(
-        self,
-        tickers:       list,
-        lookback_days: int      = 400,   # FIX: was 260 → only ~175 trading days, not enough for MA200
-        screen_date:   datetime = None,
-    ):
+    def __init__(self,tickers: list,lookback_days: int  = 400,screen_date: datetime = None):
         """
-        Args:
-            tickers       : List of ticker symbols (e.g. ['RELIANCE.NS', 'TCS.NS'])
-            lookback_days : Days of historical data to download.
-                            Default 400 ≈ 280 trading days (enough for MA200).
-                            Rule: trading_days ≈ calendar_days × (252 / 365)
-                            260 days (old default) → only ~175 trading days → MA200 always NaN!
-            screen_date   : Date to screen ON. Defaults to today.
-                            For backtesting, pass a past date.
-                            Data downloaded will be: (screen_date - lookback_days) → screen_date
+            tickers       - list of stocks
+            lookback_days - number of past days to fetch data
+            screen_date: date to run the screener (default: today)
         """
         self.tickers       = tickers
         self.lookback_days = lookback_days
         self.screen_date   = screen_date or datetime.now()
-        self.data          = {}       # ticker → pd.DataFrame (raw OHLCV)
-        self.indicators    = {}       # ticker → dict of indicator Series
-        self.results       = None     # final ranked pd.DataFrame
+        self.data          = {}
+        self.indicators    = {}
+        self.results       = None
         self.output_file   = "screener_results.csv"
         self.scorer        = StockScorer(ma_weight=0.4, rsi_weight=0.6)
 
 
     def _download_one(self, ticker: str) -> tuple:
         """
-        Download OHLCV data for a single ticker.
+            Download price data (OHLCV) for one stock
 
-        This method runs inside a thread pool — one thread per ticker.
-        Returns (ticker, df) or (ticker, None) on failure.
+            Runs inside a thread - each ticker is taken in parallel
+            Returns:
+                (ticker, df) if success
+                (ticker, None) if something fails
 
-        WHY yf.Ticker().history() instead of yf.download():
-            yf.download() uses a shared internal HTTP session and cache.
-            When multiple threads call it simultaneously, they corrupt
-            each other's state — all threads end up with the same stock's
-            data. This is a known yfinance thread-safety bug.
+            Why using Ticker().history() instead of download():
+                download() breaks when used with multiple threads
+                All threads end up getting the same stock data
 
-            yf.Ticker(ticker) creates an isolated object per ticker.
-            Each instance has its own session → truly parallel-safe.
+                history() is safer:
+                each ticker gets its own object and request,
+                so parallel calls don’t interfere with each other
+
+            This keeps the data correct while still being fast
         """
         end_date   = self.screen_date
         start_date = end_date - timedelta(days=self.lookback_days)
 
         try:
-            # ✅ FIX: Use Ticker.history() — thread-safe, clean DataFrame
-            # Each yf.Ticker() is an isolated object with its own HTTP session.
-            # The returned DataFrame always has flat columns: Open, High, Low,
-            # Close, Volume — no MultiIndex, no column-name surprises.
             tk = yf.Ticker(ticker)
-            df = tk.history(
-                start=start_date.strftime("%Y-%m-%d"),
-                end=end_date.strftime("%Y-%m-%d"),
-            )
+            df = tk.history(start=start_date.strftime("%Y-%m-%d"),end=end_date.strftime("%Y-%m-%d"))
 
             if df.empty:
                 logger.warning("%-20s  NO DATA returned", ticker)
@@ -137,35 +108,27 @@ class StockScreener:
 
     def download_data(self, max_workers: int = 8) -> None:
         """
-        Download all tickers IN PARALLEL using ThreadPoolExecutor.
-
-        Why parallel?
-            Sequential: 15 stocks × 2s each = ~30 seconds
-            Parallel  : 15 stocks, 8 workers = ~3–5 seconds
-            Interviewers notice this. Shows systems thinking.
-
-        Args:
-            max_workers : Number of parallel threads (default 8).
-                          Don't go above 10 — yfinance rate limits.
+            Downloads historical stock data for all tickers using multiple threads
+            Each ticker is fetched in parallel to reduce total download time
         """
-        logger.info("=" * 60)
-        logger.info("STEP 1 — PARALLEL DOWNLOAD  (workers=%d)", max_workers)
-        logger.info("Screen date: %s", self.screen_date.strftime("%Y-%m-%d"))
-        logger.info("=" * 60)
+        logger.info("—" * 60)
+        logger.info("PARALLEL DOWNLOAD (workers=%d)".center(60), max_workers)
+        logger.info("Screen date: %s".center(52), self.screen_date.strftime("%Y-%m-%d"))
+        logger.info("—" * 60 + "\n")
 
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
-            # Submit all download jobs at once
+            """
+                have 8 workers ready to download stocks
+                Submit all downloads at once
+            """
             futures = {pool.submit(self._download_one, t): t for t in self.tickers}
-            # Collect results as they complete (not in submission order)
+
             for future in as_completed(futures):
                 ticker, df = future.result()
                 if df is not None:
                     self.data[ticker] = df
 
-        logger.info(
-            "Downloaded: %d / %d tickers\n",
-            len(self.data), len(self.tickers)
-        )
+        logger.info("Downloaded Stocks - %d / %d tickers\n".center(60),len(self.data), len(self.tickers))
         
 
     def calculate_indicators(self) -> None:
@@ -340,13 +303,12 @@ class StockScreener:
 
 
     def run(self, top_n: int = 5) -> None:
-        """Run the complete 4-step pipeline."""
-        logger.info("SCREENER START — %s", self.screen_date.strftime("%Y-%m-%d"))
+        logger.info("STOCK SCREENER — %s".center(50) + "\n", self.screen_date.strftime("%Y-%m-%d"))
         self.download_data()
         self.calculate_indicators()
         self.generate_signals()
         self.export_results(top_n=top_n)
-        logger.info("SCREENER COMPLETE ✓\n")
+        logger.info("SCREENER COMPLETE\n".center(60))
 
 
 def parse_args() -> argparse.Namespace: # just an object holding values
@@ -392,7 +354,7 @@ def parse_args() -> argparse.Namespace: # just an object holding values
     parser.add_argument(
         "--lookback",
         type=int,
-        default=400,   # FIX: was 260 — not enough for MA200
+        default=400,
         metavar="DAYS",
         help="Calendar days of historical data for indicators. Default: 400 (~280 trading days)",
     )
