@@ -280,13 +280,15 @@ class StockScorer:
         """
         
         if score >= 0.7:
-            return "🔥 STRONG BUY"
+            return "STRONG BUY"
         elif score >= 0.3:
-            return "👍 BUY"
+            return "BUY"
         elif score > -0.3:
-            return "➖ HOLD"
+            return "HOLD"
+        elif score > -0.7:
+            return "WEAK SELL"
         else:
-            return "⛔ SELL"
+            return "SELL"
 
 
 if __name__ == "__main__":

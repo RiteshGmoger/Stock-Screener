@@ -260,11 +260,10 @@ class StockScreener:
                 signal   = self.scorer.get_interpretation(score)
                 ma_diff  = round((price - v_ma50) / v_ma50 * 100, 2)
 
-                # P2 bullish hard filter
                 if v_ma200 is not None:
                     bullish = StockScorer.is_bullish(price, v_ma50, v_ma200, v_rsi)
                 else:
-                    bullish = False  # can't confirm without MA200
+                    bullish = False # cant confirm without MA200
 
                 rows.append({
                     "Ticker":         ticker,
@@ -275,37 +274,32 @@ class StockScreener:
                     "RSI14":          round(v_rsi, 2),
                     "Bullish":        bullish,
                     "Combined_Score": score,
-                    "Signal":         signal,
+                    "Signal":         signal
                 })
 
-                logger.info(
-                    "%-20s  score=%+.2f  %-16s  bullish=%s",
-                    ticker, score, signal, bullish
-                )
+                logger.info("%-15s  Score = %+.2f    %-12s  Bullish = %s",ticker, score, signal, bullish)
 
             except Exception as exc:
-                logger.error("%-20s  signal error: %s", ticker, exc)
+                logger.error("%-20s  signal error: %s".center(50), ticker, exc)
 
         if not rows:
-            logger.error("No stocks passed screening — check data and indicators")
+            logger.error("No stocks passed screening — check data and indicators".center(60))
             self.results = pd.DataFrame()
             return
-
-        self.results = (
-            pd.DataFrame(rows)
-            .sort_values("Combined_Score", ascending=False)
-            .reset_index(drop=True)
-        )
+            
+        self.results = (pd.DataFrame(rows).sort_values("Combined_Score", ascending=False).reset_index(drop=True))
         self.results["Rank"] = self.results.index + 1
-        logger.info("Scored %d stocks\n", len(self.results))
+        
+        logger.info("\n")
+        logger.info("Scored %d stocks\n".center(60), len(self.results))
 
 
     def export_results(self, top_n: int = 5) -> None:
         """
-        Save results to CSV and print top N stocks to terminal.
+            Save results to CSV and print top N stocks to terminal.
         """
         logger.info("—" * 60)
-        logger.info("STEP 4 — EXPORT")
+        logger.info("EXPORT".center(60))
         logger.info("—" * 60)
 
         if self.results is None or self.results.empty:
@@ -313,22 +307,19 @@ class StockScreener:
             return
 
         self.results.to_csv(self.output_file, index=False)
-        logger.info("Saved → %s", self.output_file)
+        logger.info("Saved -> %s".center(43), self.output_file)
 
-        # Print top N
         display_cols = [
             "Rank", "Ticker", "Price", "MA50", "MA200",
             "RSI14", "Combined_Score", "Signal", "Bullish"
         ]
-        print("\n" + "—" * 85)
-        print(
-            f"  TOP {top_n} STOCKS  "
-            f"[screened on {self.screen_date.strftime('%Y-%m-%d')}]"
-            .center(85, "—")
-        )
-        print("—" * 85)
+        print("\n" + "—" * 87)
+        print(f"  TOP {top_n} STOCKS  "f"[screened on {self.screen_date.strftime('%Y-%m-%d')}]".center(87, "—"))
+        print("—" * 87)
+        print("\n")
         print(self.results[display_cols].head(top_n).to_string(index=False))
-        print("—" * 85 + "\n")
+        print("\n")
+        print("—" * 87 + "\n")
 
 
     def run(self, top_n: int = 5) -> None:
