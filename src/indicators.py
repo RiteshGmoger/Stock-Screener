@@ -50,13 +50,13 @@ def calculate_moving_average(price_series: pd.Series, window: int = 50) -> pd.Se
 def calculate_ema(price_series: pd.Series, span: int = 12) -> pd.Series:
     """
         Instead of taking equal average like SMA, this gives more importance
-        to recent prices and less to older ones.
+        to recent prices and less to older ones
 
         At the start, it begins from the first price, then keeps updating
-        step by step using the previous EMA and the new price.
+        step by step using the previous EMA and the new price
 
-        It moves forward continuously — it doesn’t drop old values suddenly,
-        older prices just slowly lose importance.
+        It moves forward continuously - it doesn’t drop old values suddenly,
+        older prices just slowly lose importance
 
         Example:
             Given:
@@ -68,8 +68,8 @@ def calculate_ema(price_series: pd.Series, span: int = 12) -> pd.Series:
 
             So:
                 α = 2 / (3 + 1) = 0.5
-            50% → today’s price
-            50% → previous EMA
+            50% -> today’s price
+            50% -> previous EMA
             
             Day 1:
             EMA₁ = 100 (start = first value)
