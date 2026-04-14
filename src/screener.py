@@ -323,7 +323,7 @@ class StockScreener:
 
 
     def run(self, top_n: int = 5) -> None:
-        logger.info("STOCK SCREENER — %s".center(50) + "\n", self.screen_date.strftime("%Y-%m-%d"))
+        logger.info("STOCK SCREENER - %s".center(50) + "\n", self.screen_date.strftime("%Y-%m-%d"))
         self.download_data()
         self.calculate_indicators()
         self.generate_signals()
@@ -334,7 +334,7 @@ class StockScreener:
 def parse_args() -> argparse.Namespace: # just an object holding values
     parser = argparse.ArgumentParser(
         prog="screener",
-        description="Quantitative Stock Screener — NIFTY50",
+        description="Quantitative Stock Screener - NIFTY50",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
             Examples:
@@ -390,6 +390,7 @@ if __name__ == "__main__":
     if args.date:
         try:
             screen_date = datetime.strptime(args.date, "%Y-%m-%d")
+            
         except ValueError:
             logger.error("Invalid date format '%s'. Use YYYY-MM-DD.", args.date)
             sys.exit(1)
