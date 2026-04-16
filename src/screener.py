@@ -65,7 +65,7 @@ class StockScreener:
         self.data          = {}
         self.indicators    = {}
         self.results       = None
-        self.output_file   = "screener_results.csv"
+        self.output_file   = "outputs/screener_results.csv"
         self.scorer        = StockScorer(ma_weight=0.4, rsi_weight=0.6)
 
 
@@ -307,7 +307,7 @@ class StockScreener:
             return
 
         self.results.to_csv(self.output_file, index=False)
-        logger.info("Saved -> %s".center(43), self.output_file)
+        logger.info("Saved -> %s".center(33), self.output_file)
 
         display_cols = [
             "Rank", "Ticker", "Price", "MA50", "MA200",
