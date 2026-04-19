@@ -30,38 +30,37 @@ Range is -1.0 to +1.0. RSI gets more weight because momentum tends to lead price
 ```
 stock-screener/
 ├── src/
-│   ├── screener.py            # main screening pipeline
-│   ├── indicators.py          # SMA, EMA, RSI calculations
-│   ├── scoring.py             # scoring model (StockScorer)
-│   ├── backtest.py            # walk-forward backtester
-│   ├── backtest_engine.py     # modular core engine (data-independent)
-│   ├── walk_forward.py        # validation runner
-│   ├── walkforward_metrics.py # sharpe, win rate, edge calculation
-│   ├── portfolio_optimizer.py # volatility-adjusted position sizing
-│   ├── performance_analyzer.py# equity curves, drawdown, score vs return
-│   ├── regime_analysis.py     # bull/bear/flat market breakdown
-│   ├── drawdown_analysis.py   # max drawdown, equity curve
-│   ├── plot_walkforward.py    # plots equity curve from results
-│   └── stock_list.py          # stock universe (15 Nifty 50 tickers)
+│   ├── screener.py             # main screening pipeline
+│   ├── indicators.py           # SMA, EMA, RSI calculations
+│   ├── scoring.py              # scoring model (StockScorer)
+│   ├── backtest.py             # walk-forward backtester
+│   ├── backtest_engine.py      # modular core engine (data-independent)
+│   ├── walk_forward.py         # validation runner
+│   ├── walkforward_metrics.py  # sharpe, win rate, edge calculation
+│   ├── portfolio_optimizer.py  # volatility-adjusted position sizing
+│   ├── performance_analyzer.py # equity curves, drawdown, score vs return
+│   ├── regime_analysis.py      # bull/bear/flat market breakdown
+│   ├── drawdown_analysis.py    # max drawdown, equity curve
+│   ├── plot_walkforward.py     # plots equity curve from results
+│   └── stock_list.py           # stock universe (15 Nifty 50 tickers)
 ├── outputs/
-│   ├── backtests/             # backtest_results.csv, backtest_picks.csv
-│   ├── plots/                 # equity curve png, drawdown csv
-│   ├── walkforward/           # walkforward_results.csv, metrics.csv
+│   ├── backtests/              # backtest_results.csv, backtest_picks.csv
+│   ├── plots/                  # equity curve png, drawdown csv
+│   ├── walkforward/            # walkforward_results.csv, metrics.csv
 │   ├── screener_results.csv
 │   └── regime_summary.csv
 ├── tests/
 │   ├── demo_indicators.py
 │   └── test_screener_dates.py
 ├── logs/
-│   └── screener.log
-└── research/                  # (notes, experiments — not tracked)
+    └── screener.log
 ```
 
 ---
 
 ## Setup:
 
-git clone https://github.com/<your-username>/stock-screener
+git@github.com:RiteshGmoger/Stock-Screener.git
 cd stock-screener
 
 conda create -n quant python=3.11
@@ -69,25 +68,6 @@ conda activate quant
 
 pip install pandas numpy yfinance matplotlib seaborn python-dateutil
 
----
-
-## How to run
-**Run the screener** (shows top stocks right now):
-    python -m src.screener --top 5
-
-**Run the backtest** (walks through last 12 months):
-    python -m src.backtest
-
-**Run walk-forward validation**:
-    python -m src.walk_forward
-
-**Analyze performance** (charts + metrics):
-    python -m src.performance_analyzer
-
-**Portfolio weights** (volatility-adjusted sizing):
-    python -m src.portfolio_optimizer
-
----
 
 ## Output files
 
@@ -119,7 +99,7 @@ Edit at the bottom of `src/backtest.py`:
 
 ## Scoring weights
 
-Edit in `src/scoring.py`:
+`src/scoring.py`:
     scorer = StockScorer(
         ma_weight=0.4,
         rsi_weight=0.6
@@ -149,9 +129,9 @@ Edit in `src/scoring.py`:
 ## No look-ahead bias — how it works
 
 Every month:
-1. Screener downloads data with `end=screen_date` — it never sees the future
-2. Returns are measured using data downloaded *after* `screen_date`
-3. These two never overlap
+    Screener downloads data with `end=screen_date` — it never sees the future
+    Returns are measured using data downloaded *after* `screen_date`
+    These two never overlap
 
 This is what makes it a real backtest and not just curve-fitting.
 
