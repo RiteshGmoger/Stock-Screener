@@ -137,17 +137,6 @@ This is what makes it a real backtest and not just curve-fitting.
 
 ---
 
-## What's next
-
-- [ ] Full Nifty 50 universe (currently 15 stocks)
-- [ ] Transaction cost and slippage modeling
-- [ ] More indicators (MACD, Bollinger Bands, ATR)
-- [ ] Factor-based scoring (momentum, mean reversion, quality)
-- [ ] Stop-loss logic
-- [ ] C++ execution layer for low-latency work
-
----
-
 ## Context
 
 2nd year CSE student building toward quant development. This project is an attempt to actually understand how a real quant pipeline works — not tutorials, just building it piece by piece. Still early, lots to improve, but the fundamentals (no look-ahead bias, proper walk-forward, real metrics) are there.
