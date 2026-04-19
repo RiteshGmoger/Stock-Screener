@@ -1,25 +1,25 @@
 """
-backtest.py — Walk-Forward Backtester (P2 Complete)
+    Backtest for my stock screener
 
-What this does:
-    Runs a month-by-month historical backtest of the screener strategy.
-    Each month is independent — no look-ahead bias.
+    Runs the strategy month by month on past data to see if it actually makes money
 
-Walk-forward logic:
-    For each month i:
-        1. Screen stocks using ONLY data up to screen_date_i
-        2. Select top N stocks
-        3. Hold for holding_days days
-        4. Measure actual returns
-        5. Compare against Nifty 50 benchmark
+    How it works:
+    Each month,
+        run screener using past data only
+        pick top stocks
+        buy them
+        hold for some days
+        sell them
+        calculate profit
+        compare with Nifty
 
-No look-ahead bias:
-    Step 1 downloads data with end=screen_date.
-    Step 3 downloads data AFTER screen_date.
-    These two downloads never overlap.
+    Important:
+        We NEVER use future data while picking stocks
+        Future data is only used after buying to check what happened
 
-Usage:
-    python -m src.backtest
+    Example:
+        Jan -> pick stocks -> check Feb returns
+        Feb -> pick stocks -> check Mar returns
 """
 
 import logging
@@ -30,6 +30,10 @@ warnings.filterwarnings("ignore", category=FutureWarning)
 import numpy as np
 import pandas as pd
 from datetime import datetime, timedelta
+
+# use this to move month-by-month (timedelta(days=30) is wrong because months have different lengths)
+# use timedelta for holding days (exact days)
+# use relativedelta for moving month by month (calendar months)
 from dateutil.relativedelta import relativedelta
 
 import yfinance as yf
@@ -37,44 +41,27 @@ import yfinance as yf
 from src.screener  import StockScreener
 from src.stock_list import get_stock_list
 
-# ------------------------------------------------------------------ #
-#  Logging                                                             #
-# ------------------------------------------------------------------ #
-
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(message)s",
+    format="%(asctime)s ||   %(levelname)s   ||    %(message)s",
     datefmt="%H:%M:%S",
-    handlers=[logging.StreamHandler(sys.stdout)],
+    handlers=[
+        logging.StreamHandler(sys.stdout),
+        logging.FileHandler("logs/backtest.log", mode="a"),
+    ],
 )
 logger = logging.getLogger(__name__)
 
 
-# ------------------------------------------------------------------ #
-#  CorrectBacktest                                                     #
-# ------------------------------------------------------------------ #
-
 class CorrectBacktest:
-    """
-    Walk-forward backtester.
-
-    'Correct' because it has zero look-ahead bias:
-        - Screening uses only data available ON the screen date.
-        - Returns are measured using only data AFTER the screen date.
-
-    Output files:
-        backtest_results.csv  — monthly portfolio vs Nifty
-        backtest_picks.csv    — individual stock picks per month
-    """
-
     def __init__(
         self,
         backtest_months: int = 12,
-        lookback_days:   int = 260,
-        top_n:           int = 3,
-        holding_days:    int = 30,
-        start_year:      int = 2024,
-        start_month:     int = 1,
+        lookback_days: int = 400,
+        top_n: int = 3,
+        holding_days: int = 30,
+        start_year: int = 2024,
+        start_month: int = 1,
     ):
         """
         Args:
@@ -95,12 +82,16 @@ class CorrectBacktest:
         self.monthly_results = []   # one dict per month
         self.all_picks       = []   # one dict per stock per month
 
-        logger.info(
-            "CorrectBacktest init | months=%d  top_n=%d  hold=%dd  start=%d-%02d",
-            backtest_months, top_n, holding_days, start_year, start_month,
-        )
+        logger.info("—"*60)
+        logger.info("BACKTEST INFO".center(60))
+        logger.info("—"*60)
+        logger.info("Months      : %d".center(60), backtest_months)
+        logger.info("Top N       : %d".center(60), top_n)
+        logger.info("Holding Days  : %d".center(58), holding_days)
+        logger.info(" Start       : %d-%02d".center(64), start_year, start_month)
+        logger.info("—"*60 + "\n")
 
-    def _screen_on_date(self, screen_date: datetime) -> list:
+    def screen_on_date(self, screen_date: datetime) -> list:
         """
         Run the screener on a specific historical date.
 
@@ -110,7 +101,9 @@ class CorrectBacktest:
         Returns:
             list of (ticker, score, entry_price) — top N picks
         """
-        logger.info("  Screening on %s...", screen_date.strftime("%Y-%m-%d"))
+        text = f"Using screener on {screen_date.strftime('%Y-%m-%d')}"
+        logger.info("│" + text.center(58) + "│")
+        logger.info("—"*60 + "\n")
 
         screener = StockScreener(
             tickers=self.stock_list,
@@ -139,9 +132,6 @@ class CorrectBacktest:
         )
         return picks
 
-    # ---------------------------------------------------------------- #
-    #  Core: Measure returns after screen_date                         #
-    # ---------------------------------------------------------------- #
 
     def _measure_returns(
         self,
@@ -239,58 +229,7 @@ class CorrectBacktest:
 
     # ---------------------------------------------------------------- #
     #  Run: main loop                                                   #
-    # ---------------------------------------------------------------- #
-
-    def run(self) -> pd.DataFrame:
-        """
-        Run the full walk-forward backtest.
-
-        Returns:
-            pd.DataFrame of monthly results.
-            Also saves backtest_results.csv and backtest_picks.csv.
-        """
-        start = datetime(self.start_year, self.start_month, 15)
-
-        logger.info("=" * 60)
-        logger.info("BACKTEST START — %d months from %s",
-                    self.backtest_months,
-                    start.strftime("%b %Y"))
-        logger.info("=" * 60)
-
-        for i in range(self.backtest_months):
-            screen_date = start + relativedelta(months=i)
-            month_str   = screen_date.strftime("%b %Y")
-
-            logger.info("\n── Month %2d / %d — %s ──",
-                        i + 1, self.backtest_months, month_str)
-
-            picks = self._screen_on_date(screen_date)
-            if not picks:
-                logger.warning("Skipping %s — no picks", month_str)
-                continue
-
-            port_ret, nifty_ret, trades = self._measure_returns(
-                picks, screen_date
-            )
-
-            self.monthly_results.append({
-                "Month":               month_str,
-                "Portfolio_Return_%":  round(port_ret,              2),
-                "Nifty_Return_%":      round(nifty_ret,             2),
-                "Outperformance_%":    round(port_ret - nifty_ret,  2),
-                "Num_Stocks":          len(trades),
-            })
-
-            for t in trades:
-                t["Month"] = month_str
-                self.all_picks.append(t)
-
-            logger.info(
-                "  ► Portfolio: %+.2f%%  Nifty: %+.2f%%  Alpha: %+.2f%%",
-                port_ret, nifty_ret, port_ret - nifty_ret,
-            )
-
-        return self._save_and_print()
+    # ---------------------------------------------------------------- 
 
     # ---------------------------------------------------------------- #
     #  Save results and print summary                                   #
@@ -350,9 +289,57 @@ class CorrectBacktest:
         return results_df
 
 
-# ------------------------------------------------------------------ #
-#  Entry point                                                         #
-# ------------------------------------------------------------------ #
+    def run(self) -> pd.DataFrame:
+        """
+            run backtest month by month and store results
+            returns dataframe and saves csv files
+        """
+        start = datetime(self.start_year, self.start_month, 15)
+
+        logger.info("—" * 60)
+        logger.info("BACKTEST START - %d months from %s".center(60),
+                    self.backtest_months,
+                    start.strftime("%b %Y"))
+        logger.info("—" * 60)
+
+        for i in range(self.backtest_months):
+            screen_date = start + relativedelta(months=i)
+            month_str   = screen_date.strftime("%b %Y")
+
+            logger.info("")
+            logger.info("—"*60)
+            text = "Month %d / %d — %s" % (i + 1, self.backtest_months, month_str)
+            logger.info("│" + text.center(58) + "│")
+            
+            picks = self.screen_on_date(screen_date)
+            if not picks:
+                logger.warning("Skipping %s — no picks".center(60), month_str)
+                continue
+
+            port_ret, nifty_ret, trades = self._measure_returns(
+                picks, screen_date
+            )
+
+            self.monthly_results.append({
+                "Month":               month_str,
+                "Portfolio_Return_%":  round(port_ret,              2),
+                "Nifty_Return_%":      round(nifty_ret,             2),
+                "Outperformance_%":    round(port_ret - nifty_ret,  2),
+                "Num_Stocks":          len(trades),
+            })
+
+            for t in trades:
+                t["Month"] = month_str
+                self.all_picks.append(t)
+
+            logger.info(
+                "  ► Portfolio: %+.2f%%  Nifty: %+.2f%%  Alpha: %+.2f%%",
+                port_ret, nifty_ret, port_ret - nifty_ret,
+            )
+
+        return self._save_and_print()
+
+
 
 if __name__ == "__main__":
     bt = CorrectBacktest(

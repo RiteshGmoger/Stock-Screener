@@ -47,7 +47,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s ||   %(levelname)s   ||    %(message)s",
     datefmt="%H:%M:%S",
-    handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("screener.log", mode="a"),]
+    handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("logs/screener.log", mode="a"),]
 )
 logger = logging.getLogger(__name__)
 
@@ -111,10 +111,10 @@ class StockScreener:
             Downloads historical stock data for all tickers using multiple threads
             Each ticker is fetched in parallel to reduce total download time
         """
-        logger.info("—" * 60)
+        logger.info("—"*60)
         logger.info("PARALLEL DOWNLOAD (workers=%d)".center(60), max_workers)
         logger.info("Screen date: %s".center(52), self.screen_date.strftime("%Y-%m-%d"))
-        logger.info("—" * 60 + "\n")
+        logger.info("—"*60 + "\n")
 
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             """
@@ -153,9 +153,9 @@ class StockScreener:
             MA200 needs enough data (200+ trading days).
             That’s why we use ~400 calendar days -- gives enough history.
         """
-        logger.info("—" * 60)
+        logger.info("—"*60)
         logger.info("INDICATORS  (MA50, MA200, RSI14)".center(60))
-        logger.info("—" * 60)
+        logger.info("—"*60)
 
         ok = 0
         for ticker, df in self.data.items():
@@ -233,9 +233,9 @@ class StockScreener:
 
             All stocks are sorted by score (best → worst)
         """
-        logger.info("—" * 60)
+        logger.info("—"*60)
         logger.info("SIGNALS & SCORING".center(60))
-        logger.info("—" * 60)
+        logger.info("—"*60)
 
         rows = []
 
@@ -298,9 +298,9 @@ class StockScreener:
         """
             Save results to CSV and print top N stocks to terminal.
         """
-        logger.info("—" * 60)
+        logger.info("—"*60)
         logger.info("EXPORT".center(60))
-        logger.info("—" * 60)
+        logger.info("—"*60)
 
         if self.results is None or self.results.empty:
             logger.error("No results to export")
@@ -313,13 +313,13 @@ class StockScreener:
             "Rank", "Ticker", "Price", "MA50", "MA200",
             "RSI14", "Combined_Score", "Signal", "Bullish"
         ]
-        print("\n" + "—" * 87)
+        print("\n" + "—"*87)
         print(f"  TOP {top_n} STOCKS  "f"[screened on {self.screen_date.strftime('%Y-%m-%d')}]".center(87, "—"))
-        print("—" * 87)
+        print("—"*87)
         print("\n")
         print(self.results[display_cols].head(top_n).to_string(index=False))
         print("\n")
-        print("—" * 87 + "\n")
+        print("—"*87 + "\n")
 
 
     def run(self, top_n: int = 5) -> None:
