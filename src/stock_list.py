@@ -21,8 +21,8 @@ TEST_TICKERS = NIFTY_50_TICKERS[:15]
 
 def get_stock_list(use_test: bool = True):
     """
-    Returns list of tickers for screening.
-    use_test=True → smaller list (faster, safer)
-    use_test=False → full universe
+        Returns list of tickers for screening.
+        use_test=True → smaller list (faster, safer)
+        use_test=False → full universe
     """
     return TEST_TICKERS if use_test else NIFTY_50_TICKERS
