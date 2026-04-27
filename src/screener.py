@@ -88,12 +88,11 @@ class StockScreener:
 
             This keeps the data correct while still being fast
         """
-        end_date   = self.screen_date
-        start_date = end_date - timedelta(days=self.lookback_days)
+        start_date = self.screen_date - timedelta(days=self.lookback_days)
 
         try:
-            tk = yf.Ticker(ticker)
-            df = tk.history(start=start_date.strftime("%Y-%m-%d"),end=end_date.strftime("%Y-%m-%d"))
+            tk = yf.Ticker(ticker) # yf.download() is NOT thread-safe so we used this
+            df = tk.history(start=start_date.strftime("%Y-%m-%d"),end=self.screen_date.strftime("%Y-%m-%d"))
 
             if df.empty:
                 logger.warning("%-20s 🔸  NO DATA returned".center(60), ticker)
@@ -111,25 +110,25 @@ class StockScreener:
             Downloads historical stock data for all tickers using multiple threads
             Each ticker is fetched in parallel to reduce total download time
         """
-        logger.info("—"*60)
+        logger.info("─"*60)
         logger.info("PARALLEL DOWNLOAD (workers=%d)".center(60), max_workers)
         logger.info("Screen date: %s".center(52), self.screen_date.strftime("%Y-%m-%d"))
-        logger.info("—"*60 + "\n")
+        logger.info("─"*60 + "\n")
 
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             """
                 have 8 workers ready to download stocks
                 Submit all downloads at once
             """
-            futures = {pool.submit(self.download_one, t): t for t in self.tickers}
+            task = {pool.submit(self.download_one, t): t for t in self.tickers}
             """
                 start downloading this stock
                 What pool.submit does:
                     runs download_one(ticker) in another thread
             """
 
-            for future in as_completed(futures): # give me results as soon as each finishes
-                ticker, df = future.result() # ("RELIANCE.NS", dataframe)
+            for task in as_completed(task): # give me results as soon as each finishes - order = RANDOM (based on which finishes first)
+                ticker, df = task.result() # ("RELIANCE.NS", dataframe)
                 if df is not None:
                     self.data[ticker] = df
         
@@ -153,9 +152,9 @@ class StockScreener:
             MA200 needs enough data (200+ trading days).
             That’s why we use ~400 calendar days -- gives enough history.
         """
-        logger.info("—"*60)
+        logger.info("─"*60)
         logger.info("INDICATORS  (MA50, MA200, RSI14)".center(60))
-        logger.info("—"*60)
+        logger.info("─"*60)
 
         ok = 0
         for ticker, df in self.data.items():
@@ -169,7 +168,7 @@ class StockScreener:
 
                 # in case some edge-case return a DataFrame
                 if isinstance(close, pd.DataFrame):
-                    close = close.iloc[:, 0] # take all rows first colun(0)
+                    close = close.iloc[:, 0] # take all rows first column(0)
 
                 # Ensure we have a clean 1D float Series for all indicators math
                 close = close.squeeze().astype(float).dropna()
@@ -178,8 +177,8 @@ class StockScreener:
                         removes extra dimensions
                     ex:
                         [[100], [102]] -> [100, 102]
-                        astype(float)
-
+                        
+                    astype(float):
                     ensures all values are numbers
                     ex:
                         "100" -> 100.0
@@ -233,9 +232,9 @@ class StockScreener:
 
             All stocks are sorted by score (best → worst)
         """
-        logger.info("—"*60)
+        logger.info("─"*60)
         logger.info("SIGNALS & SCORING".center(60))
-        logger.info("—"*60)
+        logger.info("─"*60)
 
         rows = []
 
@@ -287,7 +286,7 @@ class StockScreener:
             self.results = pd.DataFrame()
             return
             
-        self.results = (pd.DataFrame(rows).sort_values("Combined_Score", ascending=False).reset_index(drop=True))
+        self.results = pd.DataFrame(rows).sort_values("Combined_Score", ascending=False).reset_index(drop=True)
         self.results["Rank"] = self.results.index + 1
         
         logger.info("\n")
@@ -298,9 +297,9 @@ class StockScreener:
         """
             Save results to CSV and print top N stocks to terminal.
         """
-        logger.info("—"*60)
+        logger.info("─"*60)
         logger.info("EXPORT".center(60))
-        logger.info("—"*60)
+        logger.info("─"*60)
 
         if self.results is None or self.results.empty:
             logger.error("No results to export")
@@ -313,13 +312,13 @@ class StockScreener:
             "Rank", "Ticker", "Price", "MA50", "MA200",
             "RSI14", "Combined_Score", "Signal", "Bullish"
         ]
-        print("\n" + "—"*87)
-        print(f"  TOP {top_n} STOCKS  "f"[screened on {self.screen_date.strftime('%Y-%m-%d')}]".center(87, "—"))
-        print("—"*87)
+        print("\n" + "─"*87)
+        print(f"  TOP {top_n} STOCKS  "f"[screened on {self.screen_date.strftime('%Y-%m-%d')}]".center(87, "─"))
+        print("─"*87)
         print("\n")
         print(self.results[display_cols].head(top_n).to_string(index=False))
         print("\n")
-        print("—"*87 + "\n")
+        print("─"*87 + "\n")
 
 
     def run(self, top_n: int = 5) -> None:
@@ -351,32 +350,28 @@ def parse_args() -> argparse.Namespace: # just an object holding values
                 python -m src.screener --universe NIFTY50 --top 5 --date 2026-02-24 --lookback 400
             """
     )
-    parser.add_argument(
-        "--universe",
+    parser.add_argument("--universe",
         choices=["NIFTY50", "TEST"],
         default="TEST",
-        help="Stock universe - NIFTY50=15 stocks, TEST=15 stocks (Default: TEST)",
+        help="Stock universe - NIFTY50=15 stocks, TEST=15 stocks (Default: TEST)"
     )
-    parser.add_argument(
-        "--top",
+    parser.add_argument("--top",
         type=int,
         default=5,
         metavar="N",
-        help="Number of top stocks to display (Default: 5)",
+        help="Number of top stocks to display (Default: 5)"
     )
-    parser.add_argument(
-        "--date",
+    parser.add_argument("--date",
         type=str,
         default=None,
         metavar="YYYY-MM-DD",
-        help="Screen date (Default: today). Past dates screen on historical data.",
+        help="Screen date (Default: today). Past dates screen on historical data."
     )
-    parser.add_argument(
-        "--lookback",
+    parser.add_argument("--lookback",
         type=int,
         default=400,
         metavar="DAYS",
-        help="Calendar days of historical data for indicators. Default: 400 (~280 trading days)",
+        help="Calendar days of historical data for indicators. Default: 400 (~280 trading days)"
     )
     return parser.parse_args()
 
@@ -386,7 +381,7 @@ if __name__ == "__main__":
 
     tickers = NIFTY_50_TICKERS if args.universe == "NIFTY50" else TEST_TICKERS
 
-    screen_date = datetime.now()
+    screen_date = datetime.now() # Y-M-D 00:52:31.123456
     if args.date:
         try:
             screen_date = datetime.strptime(args.date, "%Y-%m-%d")
@@ -395,7 +390,6 @@ if __name__ == "__main__":
             logger.error("Invalid date format '%s'. Use YYYY-MM-DD.", args.date)
             sys.exit(1)
 
-    screener = StockScreener(tickers=tickers,lookback_days=args.lookback,
-        screen_date=screen_date)
+    screener = StockScreener(tickers=tickers,lookback_days=args.lookback,screen_date=screen_date)
     
     screener.run(top_n=args.top)

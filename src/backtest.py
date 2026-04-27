@@ -53,16 +53,8 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class CorrectBacktest:
-    def __init__(
-        self,
-        backtest_months: int = 12,
-        lookback_days: int = 400,
-        top_n: int = 3,
-        holding_days: int = 30,
-        start_year: int = 2024,
-        start_month: int = 1,
-    ):
+class Backtest:
+    def __init__(self,backtest_months: int = 12,lookback_days: int = 400,top_n: int = 3,holding_days: int = 30,start_year: int = 2024,start_month: int = 1):
         """
         Args:
             backtest_months : How many months to test. Default 12.
@@ -79,31 +71,22 @@ class CorrectBacktest:
         self.start_year      = start_year
         self.start_month     = start_month
         self.stock_list      = get_stock_list()
-        self.monthly_results = []   # one dict per month
-        self.all_picks       = []   # one dict per stock per month
+        self.monthly_results = []
+        self.all_picks       = []
 
-        logger.info("—"*60)
+        logger.info("─"*60)
         logger.info("BACKTEST INFO".center(60))
-        logger.info("—"*60)
+        logger.info("─"*60)
         logger.info("Months      : %d".center(60), backtest_months)
         logger.info("Top N       : %d".center(60), top_n)
         logger.info("Holding Days  : %d".center(58), holding_days)
         logger.info(" Start       : %d-%02d".center(64), start_year, start_month)
-        logger.info("—"*60 + "\n")
+        logger.info("─"*60 + "\n")
 
     def screen_on_date(self, screen_date: datetime) -> list:
-        """
-        Run the screener on a specific historical date.
-
-        Data downloaded: (screen_date - lookback_days) → screen_date
-        Future data is NOT available to the screener.
-
-        Returns:
-            list of (ticker, score, entry_price) — top N picks
-        """
         text = f"Using screener on {screen_date.strftime('%Y-%m-%d')}"
         logger.info("│" + text.center(58) + "│")
-        logger.info("—"*60 + "\n")
+        logger.info("─"*60 + "\n")
 
         screener = StockScreener(
             tickers=self.stock_list,
@@ -125,30 +108,27 @@ class CorrectBacktest:
             for _, row in top.iterrows()
         ]
 
-        logger.info(
-            "  Top %d picks: %s",
-            len(picks),
-            [p[0] for p in picks]
-        )
+        logger.info("")
+        logger.info("─" * 60)
+        logger.info("│" + "TOP PICKS".center(58) + "│")
+        logger.info("─" * 60)
+
+        for _, row in top.iterrows():
+            ticker = row["Ticker"]
+            label  = row["Signal"]
+
+            line = f"{ticker:<20} - {label:>12}"
+            logger.info("│" + line.center(58) + "│")
+
+        logger.info("─" * 60)
+        logger.info("")
+
         return picks
 
 
-    def _measure_returns(
-        self,
-        picks:       list,
-        screen_date: datetime,
-    ) -> tuple:
-        """
-        Download price data AFTER screen_date and calculate returns.
-
-        This is the ONLY place we use future data, and it is ONLY
-        used for measuring returns — never for signal generation.
-
-        Returns:
-            (portfolio_return_pct, nifty_return_pct, list_of_trade_dicts)
-        """
+    def measure_returns(self,picks: list,screen_date: datetime) -> tuple:
         exit_date = screen_date + timedelta(days=self.holding_days)
-        trades    = []
+        trades = []
 
         for ticker, score, entry_price in picks:
             try:
@@ -296,18 +276,18 @@ class CorrectBacktest:
         """
         start = datetime(self.start_year, self.start_month, 15)
 
-        logger.info("—" * 60)
+        logger.info("─" * 60)
         logger.info("BACKTEST START - %d months from %s".center(60),
                     self.backtest_months,
                     start.strftime("%b %Y"))
-        logger.info("—" * 60)
+        logger.info("─" * 60)
 
         for i in range(self.backtest_months):
             screen_date = start + relativedelta(months=i)
             month_str   = screen_date.strftime("%b %Y")
 
             logger.info("")
-            logger.info("—"*60)
+            logger.info("─"*60)
             text = "Month %d / %d — %s" % (i + 1, self.backtest_months, month_str)
             logger.info("│" + text.center(58) + "│")
             
@@ -316,16 +296,14 @@ class CorrectBacktest:
                 logger.warning("Skipping %s — no picks".center(60), month_str)
                 continue
 
-            port_ret, nifty_ret, trades = self._measure_returns(
-                picks, screen_date
-            )
+            port_ret, nifty_ret, trades = self.measure_returns(picks, screen_date)
 
             self.monthly_results.append({
                 "Month":               month_str,
-                "Portfolio_Return_%":  round(port_ret,              2),
-                "Nifty_Return_%":      round(nifty_ret,             2),
-                "Outperformance_%":    round(port_ret - nifty_ret,  2),
-                "Num_Stocks":          len(trades),
+                "Portfolio_Return_%":  round(port_ret,2),
+                "Nifty_Return_%":      round(nifty_ret,2),
+                "Outperformance_%":    round(port_ret - nifty_ret,2),
+                "Num_Stocks":          len(trades)
             })
 
             for t in trades:
@@ -342,7 +320,7 @@ class CorrectBacktest:
 
 
 if __name__ == "__main__":
-    bt = CorrectBacktest(
+    bt = Backtest(
         backtest_months=12,
         lookback_days=400,
         top_n=3,
