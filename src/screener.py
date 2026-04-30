@@ -95,14 +95,14 @@ class StockScreener:
             df = tk.history(start=start_date.strftime("%Y-%m-%d"),end=self.screen_date.strftime("%Y-%m-%d"))
 
             if df.empty:
-                logger.warning("%-20s 🔸  NO DATA returned".center(60), ticker)
+                logger.warning("%-20s 🔸  NO DATA returned".center(71), ticker)
                 return ticker, None
 
-            logger.info("%-20s 🔹  %d rows downloaded".center(44), ticker, len(df))
+            logger.info("%-20s 🔹  %d rows downloaded".center(53), ticker, len(df))
             return ticker, df
 
         except Exception as exc:
-            logger.error("%-20s  DOWNLOAD ERROR: %s".center(60), ticker, str(exc)[:60])
+            logger.error("%-20s  DOWNLOAD ERROR: %s".center(70), ticker, str(exc)[:60])
             return ticker, None
 
     def download_data(self, max_workers: int = 8) -> None:
@@ -110,10 +110,10 @@ class StockScreener:
             Downloads historical stock data for all tickers using multiple threads
             Each ticker is fetched in parallel to reduce total download time
         """
-        logger.info("─"*60)
-        logger.info("PARALLEL DOWNLOAD (workers=%d)".center(60), max_workers)
-        logger.info("Screen date: %s".center(52), self.screen_date.strftime("%Y-%m-%d"))
-        logger.info("─"*60 + "\n")
+        logger.info("─"*71)
+        logger.info("PARALLEL DOWNLOAD (workers=%d)".center(69), max_workers)
+        logger.info("Screen date: %s".center(61), self.screen_date.strftime("%Y-%m-%d"))
+        logger.info("─"*71 + "\n")
 
         with ThreadPoolExecutor(max_workers=max_workers) as pool:
             """
@@ -133,7 +133,7 @@ class StockScreener:
                     self.data[ticker] = df
         
         logger.info("\n")
-        logger.info("Downloaded %d / %d Stocks\n".center(60),len(self.data), len(self.tickers))
+        logger.info("Downloaded %d / %d Stocks\n".center(70),len(self.data), len(self.tickers))
         
 
     def calculate_indicators(self) -> None:
@@ -152,9 +152,9 @@ class StockScreener:
             MA200 needs enough data (200+ trading days).
             That’s why we use ~400 calendar days -- gives enough history.
         """
-        logger.info("─"*60)
-        logger.info("INDICATORS  (MA50, MA200, RSI14)".center(60))
-        logger.info("─"*60)
+        logger.info("─"*71)
+        logger.info("INDICATORS  (MA50, MA200, RSI14)".center(69))
+        logger.info("─"*71 + "\n")
 
         ok = 0
         for ticker, df in self.data.items():
@@ -207,10 +207,9 @@ class StockScreener:
                 ok += 1
 
             except Exception as exc:
-                logger.error("%-20s  indicator error: %s".center(50), ticker, exc)
+                logger.error("%-20s  indicator error: %s".center(71), ticker, exc)
 
-        logger.info("\n")
-        logger.info("Indicators ready: %d / %d\n".center(60), ok, len(self.data))
+        logger.info("Indicators ready: %d / %d\n".center(71), ok, len(self.data))
 
 
     def generate_signals(self) -> None:
@@ -232,9 +231,9 @@ class StockScreener:
 
             All stocks are sorted by score (best → worst)
         """
-        logger.info("─"*60)
-        logger.info("SIGNALS & SCORING".center(60))
-        logger.info("─"*60)
+        logger.info("─"*71)
+        logger.info("│" + "SIGNALS & SCORING".center(69) + "│")
+        logger.info("─"*71)
 
         rows = []
 
@@ -276,10 +275,10 @@ class StockScreener:
                     "Signal":         signal
                 })
 
-                logger.info("%-15s  Score = %+.2f    %-12s  Bullish = %s",ticker, score, signal, bullish)
+                logger.info("│" + "%-16s  Score = %+.2f    %-12s  Bullish = %-6s".center(49) + "│",ticker, score, signal, bullish)
 
             except Exception as exc:
-                logger.error("%-20s  signal error: %s".center(50), ticker, exc)
+                logger.error("%-20s  signal error: %s".center(71), ticker, exc)
 
         if not rows:
             logger.error("No stocks passed screening — check data and indicators".center(60))
@@ -289,36 +288,37 @@ class StockScreener:
         self.results = pd.DataFrame(rows).sort_values("Combined_Score", ascending=False).reset_index(drop=True)
         self.results["Rank"] = self.results.index + 1
         
+        logger.info("─"*71)
         logger.info("\n")
-        logger.info("Scored %d stocks\n".center(60), len(self.results))
+        logger.info("Scored %d stocks\n".center(71), len(self.results))
 
 
     def export_results(self, top_n: int = 5) -> None:
         """
             Save results to CSV and print top N stocks to terminal.
         """
-        logger.info("─"*60)
-        logger.info("EXPORT".center(60))
-        logger.info("─"*60)
+        logger.info("─"*71)
+        logger.info("EXPORT".center(69))
+        logger.info("─"*71)
 
         if self.results is None or self.results.empty:
             logger.error("No results to export")
             return
 
         self.results.to_csv(self.output_file, index=False)
-        logger.info("Saved -> %s".center(33), self.output_file)
+        logger.info("Saved -> %s".center(42), self.output_file)
 
         display_cols = [
             "Rank", "Ticker", "Price", "MA50", "MA200",
             "RSI14", "Combined_Score", "Signal", "Bullish"
         ]
-        print("\n" + "─"*87)
-        print(f"  TOP {top_n} STOCKS  "f"[screened on {self.screen_date.strftime('%Y-%m-%d')}]".center(87, "─"))
-        print("─"*87)
-        print("\n")
+        print("\n" + "─"*98)
+        print(f"  TOP {top_n} STOCKS  "f"[screened on {self.screen_date.strftime('%Y-%m-%d')}]".center(98, "─"))
+        print("─"*98)
+        print("")
         print(self.results[display_cols].head(top_n).to_string(index=False))
-        print("\n")
-        print("─"*87 + "\n")
+        print("")
+        print("─"*98 + "\n")
 
 
     def run(self, top_n: int = 5) -> None:
@@ -327,7 +327,7 @@ class StockScreener:
         self.calculate_indicators()
         self.generate_signals()
         self.export_results(top_n=top_n)
-        logger.info("SCREENER COMPLETE\n".center(60))
+        logger.info("SCREENER COMPLETE\n".center(71))
 
 
 def parse_args() -> argparse.Namespace: # just an object holding values
