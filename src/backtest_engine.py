@@ -113,10 +113,6 @@ def calculate_win_rate(returns: np.ndarray) -> float:
     return float((returns > 0).mean() * 100)
 
 
-# ================================================================== #
-#  TRADE DATACLASS                                                     #
-# ================================================================== #
-
 @dataclass
 class Trade:
     """
@@ -174,10 +170,6 @@ class Trade:
             f"return={self.return_pct:+.2f}%)"
         )
 
-
-# ================================================================== #
-#  BACKTEST RESULT DATACLASS                                           #
-# ================================================================== #
 
 @dataclass
 class BacktestResult:
@@ -247,12 +239,6 @@ class BacktestResult:
         )
 
 
-# ================================================================== #
-#  BACKTEST ENGINE                                                     #
-#  Phase 1: skeleton only                                              #
-#  Phase 2: full walk-forward, transaction costs, equity curve        #
-# ================================================================== #
-
 class BacktestEngine:
     """
     Pure backtesting engine.
@@ -296,9 +282,6 @@ class BacktestEngine:
             hold_days, slippage_pct
         )
 
-    # ---------------------------------------------------------------- #
-    #  Core: run one backtest window                                    #
-    # ---------------------------------------------------------------- #
 
     def run_backtest(
         self,
@@ -375,9 +358,6 @@ class BacktestEngine:
         logger.info("  Result: %s", result)
         return result
 
-    # ---------------------------------------------------------------- #
-    #  Walk-forward validator (skeleton)                                #
-    # ---------------------------------------------------------------- #
 
     def walk_forward(
         self,
@@ -414,9 +394,6 @@ class BacktestEngine:
         logger.info("\nWalk-forward complete: %d periods", len(df))
         return df
 
-    # ---------------------------------------------------------------- #
-    #  Aggregate across all results                                     #
-    # ---------------------------------------------------------------- #
 
     def aggregate(self) -> dict:
         """
@@ -455,10 +432,6 @@ class BacktestEngine:
         print("═" * 55 + "\n")
 
 
-# ================================================================== #
-#  SMOKE TEST                                                          #
-#  Run: python -m src.backtest_engine                                  #
-# ================================================================== #
 
 if __name__ == "__main__":
     logging.basicConfig(
