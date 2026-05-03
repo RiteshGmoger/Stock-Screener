@@ -149,16 +149,16 @@ def calculate_rsi(price_series: pd.Series, period: int = 14) -> pd.Series:
 
          High RSI = strong upward movement
     """
-    delta    = price_series.diff()
-    gain     = delta.where(delta > 0, 0.0)
-    loss     = -delta.where(delta < 0, 0.0)
+    delta = price_series.diff()
+    gain = delta.where(delta > 0, 0.0)
+    loss = -delta.where(delta < 0, 0.0)
     avg_gain = gain.rolling(window=period).mean()
     avg_loss = loss.rolling(window=period).mean()
-    rs       = avg_gain / avg_loss
+    rs = avg_gain / avg_loss
     
     """
         RS can range from 0 to infinity, so we convert it into a clean 0–100 scale
         to make it easier to interpret
     """
-    rsi      = 100 - (100 / (1 + rs))
+    rsi = 100 - (100 / (1 + rs))
     return rsi

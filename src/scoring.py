@@ -45,7 +45,7 @@ class StockScorer:
         
         if abs(ma_weight + rsi_weight - 1.0) > 0.001:
             raise ValueError(f"Weights must sum to 1.0, got {ma_weight + rsi_weight:.3f}")
-        self.ma_weight  = ma_weight
+        self.ma_weight = ma_weight
         self.rsi_weight = rsi_weight
 
 

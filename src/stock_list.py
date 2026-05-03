@@ -13,7 +13,7 @@ NIFTY_50_TICKERS = [
     'MARUTI.NS',       # Automobiles
     'BHARTIARTL.NS',   # Telecom
     'SUNPHARMA.NS',    # Pharma
-    'DRREDDY.NS',      # Pharma
+    'DRREDDY.NS'       # Pharma
 ]
 
 TEST_TICKERS = NIFTY_50_TICKERS[:15]

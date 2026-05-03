@@ -47,7 +47,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s ||   %(levelname)s   ||    %(message)s",
     datefmt="%H:%M:%S",
-    handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("logs/screener.log", mode="a"),]
+    handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("logs/screener.log", mode="a")]
 )
 logger = logging.getLogger(__name__)
 
@@ -59,14 +59,14 @@ class StockScreener:
             lookback_days - number of past days to fetch data
             screen_date: date to run the screener (default: today)
         """
-        self.tickers       = tickers
+        self.tickers = tickers
         self.lookback_days = lookback_days
-        self.screen_date   = screen_date or datetime.now()
-        self.data          = {}
-        self.indicators    = {}
-        self.results       = None
-        self.output_file   = "outputs/screener_results.csv"
-        self.scorer        = StockScorer(ma_weight=0.4, rsi_weight=0.6)
+        self.screen_date = screen_date or datetime.now()
+        self.data = {}
+        self.indicators = {}
+        self.results = None
+        self.output_file = "outputs/screener_results.csv"
+        self.scorer = StockScorer(ma_weight=0.4, rsi_weight=0.6)
 
 
     def download_one(self, ticker: str) -> tuple:

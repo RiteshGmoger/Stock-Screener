@@ -45,10 +45,7 @@ logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s ||   %(levelname)s   ||    %(message)s",
     datefmt="%H:%M:%S",
-    handlers=[
-        logging.StreamHandler(sys.stdout),
-        logging.FileHandler("logs/backtest.log", mode="a"),
-    ],
+    handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("logs/backtest.log", mode="a")]
 )
 logger = logging.getLogger(__name__)
 
@@ -65,14 +62,14 @@ class Backtest:
             start_month     : Month to start from. Default 1 (January).
         """
         self.backtest_months = backtest_months
-        self.lookback_days   = lookback_days
-        self.top_n           = top_n
-        self.holding_days    = holding_days
-        self.start_year      = start_year
-        self.start_month     = start_month
-        self.stock_list      = get_stock_list()
+        self.lookback_days = lookback_days
+        self.top_n = top_n
+        self.holding_days = holding_days
+        self.start_year = start_year
+        self.start_month = start_month
+        self.stock_list = get_stock_list()
         self.monthly_results = []
-        self.all_picks       = []
+        self.all_picks = []
 
         logger.info("─"*71)
         logger.info("BACKTEST INFO".center(69))
