@@ -115,21 +115,21 @@ class WalkForwardValidator:
         top = screener.results.head(self.top_n)
         picks = [(row["Ticker"], row["Combined_Score"], row["Price"])for _, row in top.iterrows()]
 
-        logger.info("─"*71)
-        logger.info("│" + "TOP PICKS".center(69) + "│")
-        logger.info("─"*71)
+        logger.info("─"*77)
+        logger.info("│" + "TOP PICKS".center(75) + "│")
+        logger.info("─"*77)
 
         for _, row in top.iterrows():
             line = f"{row['Ticker']:<20} - {row['Signal']:>12}"
-            logger.info("│" + line.center(69) + "│")
+            logger.info("│" + line.center(75) + "│")
 
-        logger.info("─"*71)
+        logger.info("─"*77)
         return picks
 
 
-    def _measure_returns(self, picks: list, screen_date: datetime) -> tuple:
+    def measure_returns(self, picks: list, screen_date: datetime) -> tuple:
         """
-            Measure actual returns for each pick over self.holding_days.
+            Measure actual returns for each pick over self.holding_days
 
             Slippage:
                 Each trade has a round-trip cost = entry slippage + exit slippage
@@ -151,21 +151,18 @@ class WalkForwardValidator:
         # relativedelta(months=N) gives exact calendar months: Jan 15 -> Feb 15, not Feb 14 or Feb 17
         # timedelta(days=30) is wrong for Feb (28/29 days) and months with 31 days
         exit_date = screen_date + relativedelta(months=self.holding_period)
-        trades    = []
+        trades = []
 
-        logger.info("│" + "TRADES".center(69) + "│")
-        logger.info("─"*71)
+        logger.info("│"+ "TRADES".center(75) + "│")
+        logger.info("─"*77)
 
         for ticker, score, entry_price in picks:
             try:
                 tk = yf.Ticker(ticker)
-                df = tk.history(
-                    start = screen_date.strftime("%Y-%m-%d"),
-                    end   = exit_date.strftime("%Y-%m-%d"),
-                )
+                df = tk.history(start = screen_date.strftime("%Y-%m-%d"),end = exit_date.strftime("%Y-%m-%d"))
 
                 if df.empty or len(df) < 2:
-                    logger.warning("%-20s  not enough forward data".center(50), ticker)
+                    logger.warning("%-20s  not enough forward data".center(69), ticker)
                     continue
 
                 close = df["Close"]
@@ -177,61 +174,57 @@ class WalkForwardValidator:
                     continue
 
                 entry = float(close.iloc[0])
-                exit_ = float(close.iloc[-1])
+                exit = float(close.iloc[-1])
 
                 if entry == 0:
                     continue
 
-                gross_ret = (exit_ - entry) / entry * 100
-                net_ret   = gross_ret - self.slippage_pct  # FIX: deduct round-trip slippage
+                gross_ret = (exit - entry) / entry * 100
+                net_ret = gross_ret - self.slippage_pct  # FIX: deduct round-trip slippage
 
                 trades.append({
                     "Ticker":       ticker,
                     "Score":        score,
                     "Entry_Price":  round(entry, 2),
-                    "Exit_Price":   round(exit_, 2),
+                    "Exit_Price":   round(exit, 2),
                     "Gross_Return": round(gross_ret, 2),
-                    "Return":       round(net_ret, 2),  # net of slippage
+                    "Return":       round(net_ret, 2)
                 })
 
                 line = (
-                    f"{ticker:<12} │ entry={entry:>8.2f} │ exit={exit_:>8.2f}"
-                    f" │ gross={gross_ret:+6.2f}% │ net={net_ret:+6.2f}%"
-                )
-                logger.info("│ " + line.ljust(67) + " │")
+                    f"{ticker:<12} │ {entry:>8.2f} │ {exit:>8.2f}"
+                    f" │ profit = {gross_ret:+6.2f}% │ net_pft = {net_ret:+6.2f}%")
+                logger.info("│ " + line.ljust(73) + " │")
 
             except Exception as exc:
                 logger.warning("%-20s  return calc failed: %s".center(60), ticker, exc)
 
-        logger.info("─"*71)
+        logger.info("─"*77)
 
         # equal weighting: each stock gets the same capital allocation
         portfolio_return = float(np.mean([t["Return"] for t in trades])) if trades else 0.0
-        nifty_return     = self._get_nifty_return(screen_date, exit_date)
+        nifty_return = self.get_nifty_return(screen_date, exit_date)
 
         return portfolio_return, nifty_return, trades
 
 
-    def _get_nifty_return(self, start: datetime, end: datetime) -> float:
+    def get_nifty_return(self, start: datetime, end: datetime) -> float:
         """
-            Download Nifty 50 return for the holding period.
+            Download Nifty 50 return for the holding period
             Used to measure alpha -- did we beat the market?
 
             Note: Nifty return is NOT slippage-adjusted here
             because buying Nifty via index fund has near-zero cost (~0.01% for Niftybees)
-            This makes the comparison fair and slightly conservative for our strategy.
+            This makes the comparison fair and slightly conservative for our strategy
 
             Example:
-                Strategy +5%  vs  Nifty +3%  -> good (beat market)
-                Strategy +5%  vs  Nifty +8%  -> bad  (market won)
-                Strategy -2%  vs  Nifty -5%  -> good (lost less)
+                strategy +5% vs Nifty +3% -> good (beat market)
+                strategy +5% vs Nifty +8% -> bad (market won)
+                strategy -2% vs Nifty -5% -> good (lost less)
         """
         try:
             tk = yf.Ticker("^NSEI")
-            df = tk.history(
-                start = start.strftime("%Y-%m-%d"),
-                end   = end.strftime("%Y-%m-%d"),
-            )
+            df = tk.history(start = start.strftime("%Y-%m-%d"),end = end.strftime("%Y-%m-%d"))
 
             if len(df) < 2:
                 return 0.0
@@ -246,11 +239,11 @@ class WalkForwardValidator:
             return 0.0
 
 
-    def _save_and_print(self) -> pd.DataFrame:
+    def save_and_print(self) -> pd.DataFrame:
         """
-            Save results to CSV and print performance summary.
+            Save results to CSV and print performance summary
 
-            Sharpe and Sortino are annualized and use India's risk-free rate.
+            Sharpe and Sortino are annualized and use India's risk-free rate
 
             Annualized Sharpe:
                 monthly_sharpe = (mean_return - rf_monthly) / std_return
@@ -278,7 +271,7 @@ class WalkForwardValidator:
         picks_df   = pd.DataFrame(self.all_picks)
 
         results_df.to_csv("outputs/walk_forward_results.csv", index=False)
-        picks_df.to_csv("outputs/walk_forward_picks.csv",     index=False)
+        picks_df.to_csv("outputs/walk_forward_picks.csv", index=False)
 
         print("")
         logger.info("Saved -> walk_forward_results.csv".center(69))
@@ -288,31 +281,20 @@ class WalkForwardValidator:
             logger.warning("No results generated -- check date range and data".center(71))
             return results_df
 
-        port  = results_df["Portfolio_Return"]
+        port = results_df["Portfolio_Return"]
         nifty = results_df["Nifty_Return"]
         alpha = results_df["Outperformance"]
 
-        cump_port  = float(((1 + port  / 100).prod() - 1) * 100)
+        cump_port = float(((1 + port  / 100).prod() - 1) * 100)
         cump_nifty = float(((1 + nifty / 100).prod() - 1) * 100)
-        win_rate   = float((port > 0).mean()     * 100)
-        beat_rate  = float((port > nifty).mean() * 100)
-
-        # FIX: annualized Sharpe with India risk-free rate
-        # excess = monthly return (decimal) minus monthly risk-free rate
-        excess     = port / 100 - RF_MONTHLY
+        win_rate = float((port > 0).mean() * 100)
+        beat_rate = float((port > nifty).mean() * 100)
+        excess = port / 100 - RF_MONTHLY
         # need at least 6 points for std to be meaningful; fewer = random noise
-        sharpe_ann = (
-            float(excess.mean() / excess.std() * np.sqrt(12))
-            if len(excess) >= 6 and excess.std() > 0 else 0.0
-        )
-
-        # FIX: annualized Sortino with risk-free rate
+        sharpe_ann = (float(excess.mean() / excess.std() * np.sqrt(12))if len(excess) >= 6 and excess.std() > 0 else 0.0)
         # downside = only months where excess return was negative
         downside_excess = excess[excess < 0]
-        sortino_ann     = (
-            float(excess.mean() / downside_excess.std() * np.sqrt(12))
-            if len(downside_excess) > 1 else 0.0
-        )
+        sortino_ann = (float(excess.mean() / downside_excess.std() * np.sqrt(12))if len(downside_excess) > 1 else 0.0)
 
         equity = (1 + port / 100).cumprod()
         peak   = equity.cummax()
@@ -323,29 +305,29 @@ class WalkForwardValidator:
         print("│" + "WALK-FORWARD SUMMARY".center(96) + "│")
         print("─"*98)
 
-        mid       = 48
-        width     = 96
+        mid = 48
+        width = 96
         val_width = width - mid - 1
 
         rows = [
-            ("Months tested",           str(len(results_df))),
-            ("Holding period",          f"{self.holding_period} month(s) (calendar)"),
-            ("Slippage (round-trip)",   f"{self.slippage_pct:.2f}%"),
-            ("DIVIDER",                 ""),
-            ("Portfolio return",        f"{cump_port:+.2f}%"),
-            ("Nifty return",            f"{cump_nifty:+.2f}%"),
-            ("Total alpha",             f"{(cump_port - cump_nifty):+.2f}%"),
-            ("Win rate",                f"{win_rate:.1f}%"),
-            ("Beat benchmark",          f"{beat_rate:.1f}%"),
-            ("Sharpe (annualized)",     f"{sharpe_ann:.3f}"),
-            ("Sortino (annualized)",    f"{sortino_ann:.3f}"),
-            ("Max drawdown",            f"{max_dd:.2f}%"),
-            ("Avg monthly alpha",       f"{alpha.mean():+.2f}%"),
+            ("Months tested",          str(len(results_df))),
+            ("Holding period",         f"{self.holding_period} month(s) (calendar)"),
+            ("Slippage (round-trip)",  f"{self.slippage_pct:.2f}%"),
+            ("DIVIDER",                ""),
+            ("Portfolio return",       f"{cump_port:+.2f}%"),
+            ("Nifty return",           f"{cump_nifty:+.2f}%"),
+            ("Total alpha",            f"{(cump_port - cump_nifty):+.2f}%"),
+            ("Win rate",               f"{win_rate:.1f}%"),
+            ("Beat benchmark",         f"{beat_rate:.1f}%"),
+            ("Sharpe (annualized)",    f"{sharpe_ann:.3f}"),
+            ("Sortino (annualized)",   f"{sortino_ann:.3f}"),
+            ("Max drawdown",           f"{max_dd:.2f}%"),
+            ("Avg monthly alpha",      f"{alpha.mean():+.2f}%")
         ]
 
         for label, value in rows:
             if label == "DIVIDER":
-                print(f"│{'─'*mid}:{'─'*val_width}│")
+                print(f"│{'─'*96}│")
             else:
                 print(f"│{label.center(mid)}:{value.center(val_width)}│")
 
@@ -395,7 +377,7 @@ class WalkForwardValidator:
                 logger.warning("Skipping %s -- no picks".center(69), month_str)
                 continue
 
-            port_return, nifty_return, trades = self._measure_returns(picks, screen_date)
+            port_return, nifty_return, trades = self.measure_returns(picks, screen_date)
 
             if not trades:
                 logger.warning("Skipping %s -- all trades failed (no forward data)".center(69), month_str)
@@ -413,20 +395,20 @@ class WalkForwardValidator:
                 t["Month"] = month_str
                 self.all_picks.append(t)
 
-            logger.info("│" + "PERFORMANCE".center(69) + "│")
-            logger.info("─"*71)
+            logger.info("│" + "PERFORMANCE".center(75) + "│")
+            logger.info("─"*77)
 
             line1 = f"{'Portfolio (net)':<18} - {port_return:+8.2f}%"
             line2 = f"{'Nifty':<18} - {nifty_return:+8.2f}%"
             line3 = f"{'Alpha':<18} - {(port_return - nifty_return):+8.2f}%"
 
-            logger.info("│" + line1.center(69) + "│")
-            logger.info("│" + line2.center(69) + "│")
-            logger.info("│" + line3.center(69) + "│")
+            logger.info("│" + line1.center(75) + "│")
+            logger.info("│" + line2.center(75) + "│")
+            logger.info("│" + line3.center(75) + "│")
 
-            logger.info("─"*71)
+            logger.info("─"*77)
 
-        return self._save_and_print()
+        return self.save_and_print()
 
 
 if __name__ == "__main__":
