@@ -60,6 +60,9 @@ class WalkForwardValidator:
                             Covers brokerage + bid-ask spread
                             Nifty50 large caps: 0.2% is conservative and realistic
                             Default 0.2
+                            0.1% → aggressive (optimistic)
+                            0.2% → safe / realistic 
+                            0.3%+ → conservative
         """
         self.warmup_months = warmup_months
         self.holding_period = holding_period
@@ -83,13 +86,13 @@ class WalkForwardValidator:
 
     def screen_blind(self, screen_date: datetime) -> list:
         """
-            Run the screener on screen_date using only data available up to that date.
+            Run the screener on screen_date using only data available up to that date
 
             We pass screen_date directly into StockScreener so it fetches
-            exactly 400 calendar days of history ending at screen_date.
+            exactly 400 calendar days of history ending at screen_date
             No future data ever enters the decision.
 
-            Why lookback_days=400?
+            Why lookback_days = 400?
                 MA200 needs 200+ trading days (~280)
                 400 calendar days gives enough buffer for weekends + holidays
 
@@ -100,11 +103,7 @@ class WalkForwardValidator:
         logger.info("│" + text.center(69) + "│")
         logger.info("─"*71 + "\n")
 
-        screener = StockScreener(
-            tickers       = self.stock_list,
-            lookback_days = 400,
-            screen_date   = screen_date,
-        )
+        screener = StockScreener(tickers = self.stock_list,lookback_days = 400,screen_date = screen_date)
         screener.download_data(max_workers=6)
         screener.calculate_indicators()
         screener.generate_signals()
@@ -113,11 +112,8 @@ class WalkForwardValidator:
             logger.warning("No picks generated for %s".center(69), screen_date.strftime("%b %Y"))
             return []
 
-        top   = screener.results.head(self.top_n)
-        picks = [
-            (row["Ticker"], row["Combined_Score"], row["Price"])
-            for _, row in top.iterrows()
-        ]
+        top = screener.results.head(self.top_n)
+        picks = [(row["Ticker"], row["Combined_Score"], row["Price"])for _, row in top.iterrows()]
 
         logger.info("─"*71)
         logger.info("│" + "TOP PICKS".center(69) + "│")
@@ -360,17 +356,16 @@ class WalkForwardValidator:
 
     def run(self, start_year: int = 2024, months: int = 12) -> pd.DataFrame:
         """
-            Run walk-forward validation month by month.
+            Run walk-forward validation month by month
+            Skips first warmup_months so MA200 has enough history before first test
 
-            Skips first warmup_months so MA200 has enough history before first test.
-
-            Example with warmup_months=6, months=12:
+            Example with warmup_months = 6, months = 12:
                 Jan-Jun 2024 -> skipped (warmup)
                 Jul 2024     -> first test
                 ...
                 Dec 2024     -> last test  (6 test months total)
 
-            Returns dataframe and saves CSVs.
+            Returns dataframe and saves CSVs
         """
         start = datetime(start_year, 1, 15)
 
@@ -381,11 +376,8 @@ class WalkForwardValidator:
         total_test_months = months - self.warmup_months
 
         if total_test_months <= 0:
-            logger.error(
-                "warmup_months (%d) >= months (%d) — no test months left. "
-                "Increase months or reduce warmup_months.",
-                self.warmup_months, months
-            )
+            logger.error("warmup_months (%d) >= months (%d) — no test"
+                "months left Increase months or reduce warmup_months",self.warmup_months, months)
             return pd.DataFrame()
 
         for i in range(self.warmup_months, months):
@@ -398,7 +390,7 @@ class WalkForwardValidator:
             text = f"Month {month_num} / {total_test_months} -- {month_str}"
             logger.info("│" + text.center(69) + "│")
 
-            picks = self._screen_blind(screen_date)
+            picks = self.screen_blind(screen_date)
             if not picks:
                 logger.warning("Skipping %s -- no picks".center(69), month_str)
                 continue

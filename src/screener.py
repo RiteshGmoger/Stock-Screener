@@ -240,13 +240,13 @@ class StockScreener:
         for ticker, ind in self.indicators.items():
             try:
                 close = ind["Close"]
-                ma50  = ind["MA50"]
+                ma50 = ind["MA50"]
                 ma200 = ind["MA200"]
                 rsi14 = ind["RSI14"]
 
-                price   = float(close.iloc[-1])
-                v_ma50  = float(ma50.iloc[-1])
-                v_rsi   = float(rsi14.iloc[-1])
+                price = float(close.iloc[-1])
+                v_ma50 = float(ma50.iloc[-1])
+                v_rsi = float(rsi14.iloc[-1])
                 last_ma200 = ma200.iloc[-1]
                 v_ma200 = float(last_ma200) if not pd.isna(last_ma200) else None
 
@@ -254,9 +254,9 @@ class StockScreener:
                     logger.warning("%-20s  skipped — MA50 or RSI not ready".center(50), ticker)
                     continue
 
-                score    = self.scorer.calculate_score(price, v_ma50, v_rsi, v_ma200)
-                signal   = self.scorer.get_interpretation(score)
-                ma_diff  = round((price - v_ma50) / v_ma50 * 100, 2)
+                score = self.scorer.calculate_score(price, v_ma50, v_rsi, v_ma200)
+                signal = self.scorer.get_interpretation(score)
+                ma_diff = round((price - v_ma50) / v_ma50 * 100, 2)
 
                 if v_ma200 is not None:
                     bullish = StockScorer.is_bullish(price, v_ma50, v_ma200, v_rsi)
