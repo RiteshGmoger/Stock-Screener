@@ -35,7 +35,7 @@ from src.stock_list import get_stock_list
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s ||   %(levelname)s   ||    %(message)s",
+    format="%(asctime)s ││   %(levelname)s   ││    %(message)s",
     datefmt="%H:%M:%S",
     handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("logs/walk_forward.log", mode="a")]
 )
@@ -48,15 +48,15 @@ RF_MONTHLY      = INDIA_RF_ANNUAL / 12   # ~0.00583
 
 
 class WalkForwardValidator:
-    def __init__(self,warmup_months: int = 6,test_months: int = 1,top_n: int = 3,slippage_pct: float = 0.2):
+    def __init__(self,warmup_months: int = 6,holding_period: int = 1,top_n: int = 3,slippage_pct: float = 0.2):
         """
-            warmup_months : Months to skip at start so MA200 has enough history
+            warmup_months   : Months to skip at start so MA200 has enough history
                             NOT a training window -- no parameters are optimized
                             Default 6
-            test_months   : Holding period per test window = test_months * 30 days
+            holding_period  : Holding period per test window = test_months * 30 days
                             Default 1 -> 30 day hold
-            top_n         : Number of stocks to hold each period. Default 3
-            slippage_pct  : Round-trip cost % deducted from each trade
+            top_n           : Number of stocks to hold each period. Default 3
+            slippage_pct    : Round-trip cost % deducted from each trade
                             Covers brokerage + bid-ask spread
                             Nifty50 large caps: 0.2% is conservative and realistic
                             Default 0.2
@@ -65,7 +65,7 @@ class WalkForwardValidator:
         self.holding_period = holding_period
         self.top_n = top_n
         self.slippage_pct = slippage_pct
-        self.holding_days = test_months * 30
+        self.holding_days = holding_period * 30
         self.stock_list = get_stock_list()
         self.results = []
         self.all_picks = []
@@ -75,13 +75,13 @@ class WalkForwardValidator:
         logger.info("─"*71)
         logger.info("│" + "Warmup months".center(34) + ":" + str(warmup_months).center(34) + "│")
         logger.info("│" + "Test months".center(34) + ":" + f"{holding_period} month (calendar)".center(34) + "│")
-        logger.info("│" + "Top N".center(34)  + ":" + str(top_n).center(34) + "│")
+        logger.info("│" + "Top N".center(34) + ":" + str(top_n).center(34) + "│")
         logger.info("│" + "Slippage".center(34) + ":" + f"{slippage_pct:.2f}% (round-trip)".center(34) + "│")
         logger.info("│" + "Risk-free rate".center(34) + ":" + f"{RF_MONTHLY*100:.2f}% / month  (India 10Y)".center(34) + "│")
         logger.info("─"*71 + "\n")
         
 
-    def _screen_blind(self, screen_date: datetime) -> list:
+    def screen_blind(self, screen_date: datetime) -> list:
         """
             Run the screener on screen_date using only data available up to that date.
 
@@ -154,7 +154,7 @@ class WalkForwardValidator:
         """
         # relativedelta(months=N) gives exact calendar months: Jan 15 -> Feb 15, not Feb 14 or Feb 17
         # timedelta(days=30) is wrong for Feb (28/29 days) and months with 31 days
-        exit_date = screen_date + relativedelta(months=self.test_months)
+        exit_date = screen_date + relativedelta(months=self.holding_period)
         trades    = []
 
         logger.info("│" + "TRADES".center(69) + "│")
@@ -333,7 +333,7 @@ class WalkForwardValidator:
 
         rows = [
             ("Months tested",           str(len(results_df))),
-            ("Holding period",          f"{self.test_months} month(s) (calendar)"),
+            ("Holding period",          f"{self.holding_period} month(s) (calendar)"),
             ("Slippage (round-trip)",   f"{self.slippage_pct:.2f}%"),
             ("DIVIDER",                 ""),
             ("Portfolio return",        f"{cump_port:+.2f}%"),
@@ -438,10 +438,5 @@ class WalkForwardValidator:
 
 
 if __name__ == "__main__":
-    wf = WalkForwardValidator(
-        warmup_months = 6,
-        test_months   = 1,
-        top_n         = 3,
-        slippage_pct  = 0.2,
-    )
+    wf = WalkForwardValidator(warmup_months = 6,holding_period = 1,top_n = 3,slippage_pct = 0.2)
     wf.run(start_year=2024, months=12)

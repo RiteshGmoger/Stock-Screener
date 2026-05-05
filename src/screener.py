@@ -45,7 +45,7 @@ import sys # Access to system-level stuff
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s ||   %(levelname)s   ||    %(message)s",
+    format="%(asctime)s ││   %(levelname)s   ││    %(message)s",
     datefmt="%H:%M:%S",
     handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("logs/screener.log", mode="a")]
 )
@@ -288,8 +288,7 @@ class StockScreener:
         self.results = pd.DataFrame(rows).sort_values("Combined_Score", ascending=False).reset_index(drop=True)
         self.results["Rank"] = self.results.index + 1
         
-        logger.info("─"*71)
-        logger.info("\n")
+        logger.info("─"*71 + '\n')
         logger.info("Scored %d stocks\n".center(71), len(self.results))
 
 

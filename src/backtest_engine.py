@@ -92,9 +92,11 @@ def calculate_max_drawdown(returns: np.ndarray) -> float:
     """
     if len(returns) == 0:
         return 0.0
-    equity       = (1 + returns / 100).cumprod()
-    running_max  = np.maximum.accumulate(equity)
-    drawdown     = (equity - running_max) / running_max * 100
+    # prepend 1.0 so if period 1 is a loss, running_max starts at 1.0 not 0.9
+    # without this: first loss shows as 0% drawdown instead of the real drop
+    equity      = np.insert((1 + returns / 100).cumprod(), 0, 1.0)
+    running_max = np.maximum.accumulate(equity)
+    drawdown    = (equity - running_max) / running_max * 100
     return float(drawdown.min())
 
 
@@ -211,8 +213,10 @@ class BacktestResult:
 
         returns = np.array([t.return_pct for t in self.trades])
 
-        # Compounded total return across all trades
-        self.total_return = float(((1 + returns / 100).prod() - 1) * 100)
+        # Equal-weight portfolio: all trades enter same day, split capital equally
+        # so portfolio return = average of individual returns, NOT compounded product
+        # prod() assumes sequential trades — wrong when 3 stocks bought on same day
+        self.total_return = float(returns.mean())
         self.win_rate     = calculate_win_rate(returns)
         self.sharpe_ratio = calculate_sharpe(returns)
         self.max_drawdown = calculate_max_drawdown(returns)
@@ -420,16 +424,28 @@ class BacktestEngine:
         }
 
     def print_summary(self) -> None:
-        """Print aggregate summary to terminal."""
+        """Print aggregate summary to terminal — matches backtest.py style."""
         m = self.aggregate()
         if not m:
             return
-        print("\n" + "═" * 55)
-        print(" BACKTEST ENGINE — SUMMARY ".center(55, "═"))
-        print("═" * 55)
-        for k, v in m.items():
-            print(f"  {k:<28} {v}")
-        print("═" * 55 + "\n")
+
+        mid       = 34
+        val_width = 34
+
+        print("\n" + "─"*71)
+        print("│" + "BACKTEST ENGINE — SUMMARY".center(69) + "│")
+        print("─"*71)
+        rows = [
+            ("Periods tested",   str(m["num_periods"])),
+            ("Mean return",      f"{m['mean_return_%']:+.2f}%"),
+            ("Total return",     f"{m['total_return_%']:+.2f}%"),
+            ("Sharpe ratio",     f"{m['sharpe_ratio']:.3f}"),
+            ("Max drawdown",     f"{m['max_drawdown_%']:.2f}%"),
+            ("Win rate",         f"{m['win_rate_%']:.1f}%"),
+        ]
+        for label, value in rows:
+            print("│" + label.center(mid) + ":" + value.center(val_width) + "│")
+        print("─"*71 + "\n")
 
 
 

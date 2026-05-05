@@ -43,7 +43,7 @@ from src.stock_list import get_stock_list
 
 logging.basicConfig(
     level=logging.INFO,
-    format="%(asctime)s ||   %(levelname)s   ||    %(message)s",
+    format="%(asctime)s ││   %(levelname)s   ││    %(message)s",
     datefmt="%H:%M:%S",
     handlers=[logging.StreamHandler(sys.stdout),logging.FileHandler("logs/backtest.log", mode="a")]
 )
@@ -74,10 +74,10 @@ class Backtest:
         logger.info("─"*71)
         logger.info("BACKTEST INFO".center(69))
         logger.info("─"*71)
-        logger.info("Months      : %d".center(69), backtest_months)
-        logger.info("Top N       : %d".center(69), top_n)
-        logger.info("Holding Days  : %d".center(67), holding_days)
-        logger.info(" Start       : %d-%02d".center(73), start_year, start_month)
+        logger.info("Months      :   %d".center(63), backtest_months)
+        logger.info("Top N       :   %d".center(63), top_n)
+        logger.info("Holding Days  :   %d".center(61), holding_days)
+        logger.info(" Start       :   %d-%02d".center(67), start_year, start_month)
         logger.info("─"*71 + "\n")
 
     def screen_on_date(self, screen_date: datetime) -> list:
@@ -106,7 +106,7 @@ class Backtest:
             ticker = row["Ticker"]
             label  = row["Signal"]
 
-            line = f"{ticker:<20} - {label:>12}"
+            line = f"{ticker:<15} - {label:>12}"
             logger.info("│" + line.center(69) + "│")
 
         logger.info("─"*71)
@@ -155,7 +155,7 @@ class Backtest:
                 logger.info("│ " + line.ljust(61) + " │")
 
             except Exception as exc:
-                logger.warning("  Return calc failed for %s: %s".center(60), ticker, exc)
+                logger.warning("  Return calc failed for %s: %s".center(69), ticker, exc)
                 
         logger.info("─"*71)
     
@@ -342,9 +342,9 @@ class Backtest:
             logger.info("│" + "PERFORMANCE".center(69) + "│")
             logger.info("─"*71)
 
-            line1 = f"{'Portfolio':<18} - {port_return:+8.2f}%"
-            line2 = f"{'Nifty':<18} - {nifty_return:+8.2f}%"
-            line3 = f"{'Alpha':<18} - {(port_return - nifty_return):+8.2f}%"
+            line1 = f"{'Portfolio':<12} - {port_return:+8.2f}%"
+            line2 = f"{'Nifty':<12} - {nifty_return:+8.2f}%"
+            line3 = f"{'Alpha':<12} - {(port_return - nifty_return):+8.2f}%"
 
             logger.info("│" + line1.center(69) + "│")
             logger.info("│" + line2.center(69) + "│")
