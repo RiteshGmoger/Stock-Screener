@@ -39,11 +39,6 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-# ================================================================== #
-#  METRIC HELPER FUNCTIONS                                             #
-#  Standalone so they can be unit tested independently                #
-# ================================================================== #
-
 def calculate_sharpe(returns: np.ndarray, risk_free: float = 0.0) -> float:
     """
     Sharpe Ratio = (mean_return - risk_free) / std_dev
