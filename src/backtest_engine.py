@@ -1,29 +1,28 @@
 """
-backtest_engine.py — P3 Skeleton (Phase 1 deliverable)
+    backtest_engine.py — P3 Skeleton (Phase 1 deliverable)
 
-This is the FOUNDATION for the full P3 backtesting engine.
+    This is the FOUNDATION for the full P3 backtesting engine
 
-What's here (Phase 1):
-    - Trade dataclass         — represents one completed trade
-    - BacktestResult dataclass — aggregates metrics for one test window
-    - Metric helper functions  — Sharpe, Max Drawdown, Win Rate
-    - BacktestEngine class    — skeleton with run_backtest() and walk_forward()
-    - Smoke test at bottom    — proves all dataclasses work
+    Whats here (Phase 1):
+        Trade dataclass             -      represents one completed trade
+        BacktestResult dataclass    -      aggregates metrics for one test window
+        Metric helper functions     -      Sharpe, Max Drawdown, Win Rate
+        BacktestEngine class        -      skeleton with run_backtest() and walk_forward()
+        Smoke test at bottom        -      proves all dataclasses work
 
-What gets built here in Phase 2 (16 Mar – 15 Apr):
-    - Full walk-forward validator (12 independent windows)
-    - Transaction costs (slippage + brokerage)
-    - Annualised Sharpe ratio
-    - Equity curve export
-    - Full integration with screener output
+    What gets built here in Phase 2 (16 Mar – 15 Apr):
+        Full walk-forward validator (12 independent windows)
+        Transaction costs (slippage + brokerage)
+        Annualised Sharpe ratio
+        Equity curve export
+        Full integration with screener output
 
-This file is separate from backtest.py intentionally.
-    backtest.py     = P2 (uses screener + yfinance, runs actual historical test)
-    backtest_engine.py = P3 (pure engine, receives data, computes metrics)
+    This file is separate from backtest.py intentionally.
+        backtest.py = P2 (uses screener + yfinance, runs actual historical test)
+        backtest_engine.py = P3 (pure engine, receives data, computes metrics)
 
-The separation matters in interviews:
-    "I separated the data layer from the computation layer.
-     The engine doesn't know or care where prices come from."
+    The separation matters in interviews:
+        "I separated the data layer from the computation layerThe engine doesn't know or care where prices come from"
 """
 
 from __future__ import annotations
@@ -454,14 +453,13 @@ if __name__ == "__main__":
     print(" BACKTEST ENGINE SMOKE TEST ".center(55, "="))
     print("=" * 55)
 
-    # ── Test 1: Trade dataclass ──────────────────────────────────── #
     print("\n[1] Trade dataclass:")
     entry_date = datetime(2024, 1, 15)
     exit_date  = datetime(2024, 2, 14)
 
     t1 = Trade("RELIANCE.NS", entry_date, 2400.0, exit_date, 2520.0)
-    t2 = Trade("TCS.NS",      entry_date, 3500.0, exit_date, 3360.0)
-    t3 = Trade("INFY.NS",     entry_date, 1500.0, exit_date, 1575.0)
+    t2 = Trade("TCS.NS", entry_date, 3500.0, exit_date, 3360.0)
+    t3 = Trade("INFY.NS", entry_date, 1500.0, exit_date, 1575.0)
 
     print(f"  {t1}")
     print(f"  {t2}")
