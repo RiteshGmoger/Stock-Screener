@@ -171,7 +171,7 @@ class BacktestResult:
             self.sharpe_ratio = calculate_sharpe(returns)
 
     def summary(self) -> dict:
-        # Return metrics as a flat dict — useful for building DataFrames
+        # useful for building DataFrames
         return {
             "period"      : self.period_label,
             "total_return": round(self.total_return, 2),
