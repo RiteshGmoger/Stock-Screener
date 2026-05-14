@@ -33,7 +33,7 @@ class PerformanceAnalyzer:
         results_file: str = "outputs/backtests/backtest_results.csv",
         picks_file: str = "outputs/backtests/backtest_picks.csv"
     ):
-        os.makedirs(PLOT_DIR, exist_ok=True)
+        os.makedirs(PLOT_DIR, exist_ok = True)
 
         try:
             self.results = pd.read_csv(results_file)
